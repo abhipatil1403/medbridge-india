@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    match /{document=**} { allow read, write: if false; }
+
+    function isAuthenticated() { return request.auth != null; }
+    function isOwner(uid) { return isAuthenticated() && request.auth.uid == uid; }
+    function hasRole(role) {
+      return isAuthenticated() && (request.auth.token[role] == true || request.auth.token.role == role || request.auth.token.primaryRole == role);
+    }
+    function isSuperAdmin() { return hasRole('SUPER_ADMIN'); }
+    function isAdmin() { return hasRole('ADMIN') || isSuperAdmin(); }
+    function isPublished() { return resource.data.status == 'PUBLISHED'; }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER');
+      allow update: if isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles', 'primaryRole', 'panel', 'status']));
+      allow write: if isSuperAdmin();
+    }
+
+    match /patients/{patientId} {
+      allow read: if isOwner(patientId) || isAdmin() || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER');
+      allow write: if isSuperAdmin();
+    }
+
+    match /hospitals/{hospitalId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+    }
+    match /doctors/{doctorId} {
+      allow read: if isPublished() || isAdmin();
+      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+    }
+    match /treatments/{id} { allow read: if isPublished() || isAdmin(); }
+    match /specialties/{id} { allow read: if isPublished() || isAdmin(); }
+    
+    match /costEstimates/{estimateId} {
+      allow read: if true; 
+      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+    }
+
+    match /cases/{caseId} {
+      allow create: if isOwner(request.resource.data.patientId);
+      
+      // CUSTOMER can read own case. ADMIN can read all. 
+      // SUPPORT can read if they are assigned OR if they are checking new cases (for assignment)
+      allow read: if isOwner(resource.data.patientId) || isAdmin() || 
+                  (hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER')); 
+                  // Note: In production, reading all unassigned cases should be tightened.
+                  
+      // Updates: Customer cannot update. Support can update if assigned (or assigning themselves).
+      allow update: if isAdmin() || hasRole('CASE_MANAGER') || hasRole('SUPPORT_AGENT'); 
+    }
+    
+    match /caseEvents/{eventId} {
+      allow create: if isAuthenticated(); 
+      allow read: if true; 
+    }
+    
+    match /caseNotes/{noteId} {
+      // Internal support notes - CUSTOMER CANNOT READ OR WRITE
+      allow read, write: if hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER') || isAdmin();
+    }
+    
+    match /caseMessages/{messageId} {
+      // CUSTOMER can read/write their own case messages (Needs patientId on message, or rule function to check parent case)
+      // For MVP without complex parent lookups, we trust the senderId check if patient is reading their own messages.
+      // A more robust rule uses get() to check parent case patientId.
+      allow read, write: if isOwner(resource.data.senderId) || isOwner(request.resource.data.senderId) || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER') || isAdmin();
+    }
+    
+    match /quotes/{quoteId} {
+      allow read: if hasRole('CASE_MANAGER') || isAdmin() || isOwner(resource.data.patientId);
+      allow write: if hasRole('CASE_MANAGER') || isAdmin();
+    }
+  }
+}

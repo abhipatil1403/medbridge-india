@@ -1,0 +1,22 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Default Deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+    
+    match /patient-documents/{patientId}/{caseId}/{fileName} {
+      // Patient can read their own documents. Admins/support can read.
+      allow read: if request.auth != null && (request.auth.uid == patientId || request.auth.token.role in ['ADMIN', 'SUPER_ADMIN', 'SUPPORT_AGENT', 'CASE_MANAGER']);
+      // Uploads should ideally go through backend to verify case access and virus scan
+      allow write: if false; 
+    }
+    
+    match /provider-media/{providerId}/{fileName} {
+      allow read: if true; // Public access for approved media
+      allow write: if false;
+    }
+  }
+}
