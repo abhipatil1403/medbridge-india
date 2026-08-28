@@ -16,7 +16,11 @@ export async function getHospitalById(id: string): Promise<Hospital | null> {
 
 export async function getCostEstimatesByHospital(hospitalId: string): Promise<CostEstimate[]> {
   const estimatesRef = collection(db, 'costEstimates');
-  const q = query(estimatesRef, where('hospitalId', '==', hospitalId));
+  const q = query(
+    estimatesRef, 
+    where('hospitalId', '==', hospitalId),
+    where('status', '==', 'PUBLISHED')
+  );
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as CostEstimate));
 }

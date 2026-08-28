@@ -6,10 +6,18 @@ service firebase.storage {
     match /{allPaths=**} {
       allow read, write: if false;
     }
+
+    function hasRole(role) {
+      return request.auth != null && (
+        request.auth.token[role] == true ||
+        request.auth.token.role == role ||
+        request.auth.token.primaryRole == role
+      );
+    }
     
     match /patient-documents/{patientId}/{caseId}/{fileName} {
       // Patient can read their own documents. Admins/support can read.
-      allow read: if request.auth != null && (request.auth.uid == patientId || request.auth.token.role in ['ADMIN', 'SUPER_ADMIN', 'SUPPORT_AGENT', 'CASE_MANAGER']);
+      allow read: if request.auth != null && (request.auth.uid == patientId || hasRole('ADMIN') || hasRole('SUPER_ADMIN') || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER'));
       // Uploads should ideally go through backend to verify case access and virus scan
       allow write: if false; 
     }

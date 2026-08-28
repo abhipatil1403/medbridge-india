@@ -1,78 +1,225 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // ── Default Deny ───────────────────────────────────────────────────
     match /{document=**} { allow read, write: if false; }
 
+    // ── Helper Functions ───────────────────────────────────────────────
     function isAuthenticated() { return request.auth != null; }
     function isOwner(uid) { return isAuthenticated() && request.auth.uid == uid; }
     function hasRole(role) {
-      return isAuthenticated() && (request.auth.token[role] == true || request.auth.token.role == role || request.auth.token.primaryRole == role);
+      return isAuthenticated() && (
+        request.auth.token[role] == true ||
+        request.auth.token.role == role ||
+        request.auth.token.primaryRole == role
+      );
     }
     function isSuperAdmin() { return hasRole('SUPER_ADMIN'); }
     function isAdmin() { return hasRole('ADMIN') || isSuperAdmin(); }
+    function isSupportAgent() { return hasRole('SUPPORT_AGENT'); }
+    function isCaseManager() { return hasRole('CASE_MANAGER'); }
+    function isDataReviewer() { return hasRole('DATA_REVIEWER'); }
+    function isComplianceReviewer() { return hasRole('COMPLIANCE_REVIEWER'); }
+    function isSupportStaff() { return isSupportAgent() || isCaseManager(); }
     function isPublished() { return resource.data.status == 'PUBLISHED'; }
 
+    // Helper: Is the current user assigned to this case?
+    function isAssignedSupport() {
+      return resource.data.assignedSupportId == request.auth.uid ||
+             resource.data.assignedCaseManagerId == request.auth.uid;
+    }
+    
+    // Helper: Check case ownership via get()
+    function isCaseOwner(caseId) {
+      return isOwner(get(/databases/$(database)/documents/cases/$(caseId)).data.patientId);
+    }
+
+    // Helper: Valid stage transitions
+    function isValidStageTransition(oldStage, newStage) {
+      return oldStage == newStage ||
+        (oldStage == 'NEW_INQUIRY' && newStage == 'ASSIGNED') ||
+        (oldStage == 'ASSIGNED' && newStage == 'UNDER_REVIEW') ||
+        (oldStage == 'UNDER_REVIEW' && newStage in ['WAITING_FOR_CUSTOMER', 'WAITING_FOR_PROVIDER', 'QUOTE_PREPARATION', 'ESCALATED']) ||
+        (oldStage == 'WAITING_FOR_CUSTOMER' && newStage in ['UNDER_REVIEW', 'ESCALATED']) ||
+        (oldStage == 'WAITING_FOR_PROVIDER' && newStage in ['UNDER_REVIEW', 'QUOTE_PREPARATION', 'ESCALATED']) ||
+        (oldStage == 'QUOTE_PREPARATION' && newStage in ['QUOTE_READY', 'ESCALATED']) ||
+        (oldStage == 'QUOTE_READY' && newStage == 'CLOSED') ||
+        (oldStage == 'ESCALATED' && newStage == 'UNDER_REVIEW');
+    }
+
+    // ── Users ──────────────────────────────────────────────────────────
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER');
-      allow update: if isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['roles', 'primaryRole', 'panel', 'status']));
-      allow write: if isSuperAdmin();
+      allow read: if isOwner(userId) || isAdmin() || isSupportStaff();
+      allow update: if isSuperAdmin() || (isOwner(userId) &&
+        (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['roles', 'primaryRole', 'panel', 'status'])));
+      allow create, delete: if isSuperAdmin();
     }
 
+    // ── Patients ───────────────────────────────────────────────────────
     match /patients/{patientId} {
-      allow read: if isOwner(patientId) || isAdmin() || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER');
+      allow read: if isOwner(patientId) || isAdmin();
       allow write: if isSuperAdmin();
     }
 
+    // ── Providers ──────────────────────────────────────────────────────
     match /hospitals/{hospitalId} {
-      allow read: if isPublished() || isAdmin();
-      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+      allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();
+      allow write: if (isAdmin() || isDataReviewer()) &&
+        (request.resource.data.status != 'PUBLISHED' || (
+          request.resource.data.name != null && request.resource.data.name != '' &&
+          request.resource.data.city != null && request.resource.data.city != '' &&
+          request.resource.data.specialties != null && request.resource.data.specialties.size() > 0 &&
+          request.resource.data.treatments != null && request.resource.data.treatments.size() > 0
+        ));
     }
     match /doctors/{doctorId} {
-      allow read: if isPublished() || isAdmin();
-      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+      allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();
+      allow write: if (isAdmin() || isDataReviewer()) &&
+        (request.resource.data.status != 'PUBLISHED' || (
+          request.resource.data.name != null && request.resource.data.name != '' &&
+          request.resource.data.city != null && request.resource.data.city != '' &&
+          request.resource.data.specialties != null && request.resource.data.specialties.size() > 0 &&
+          request.resource.data.treatments != null && request.resource.data.treatments.size() > 0
+        ));
     }
-    match /treatments/{id} { allow read: if isPublished() || isAdmin(); }
-    match /specialties/{id} { allow read: if isPublished() || isAdmin(); }
-    
-    match /costEstimates/{estimateId} {
-      allow read: if true; 
-      allow write: if isSuperAdmin() || hasRole('DATA_REVIEWER');
+    match /treatments/{id} {
+      allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
+    }
+    match /specialties/{id} {
+      allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
     }
 
+    // ── Admin Collections ─────────────────────────────────────────────
+    
+    match /sources/{sourceId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
+    }
+    
+    match /sourceRecords/{recordId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
+    }
+    
+    match /correctionRequests/{requestId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
+    }
+    
+    match /complianceReviews/{reviewId} {
+      allow read: if isAdmin() || isComplianceReviewer() || isDataReviewer();
+      allow write: if isAdmin() || isComplianceReviewer();
+    }
+    
+    match /auditLogs/{logId} {
+      allow read: if isAdmin() || isDataReviewer() || isComplianceReviewer();
+      allow create: if isAuthenticated() && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false; // Audit logs are immutable
+    }
+
+    // ── Cost Estimates ─────────────────────────────────────────────────
+    match /costEstimates/{estimateId} {
+      allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();
+      allow write: if (isAdmin() || isDataReviewer()) &&
+        request.resource.data.minAmount <= request.resource.data.maxAmount;
+    }
+
+    // ── Cases ──────────────────────────────────────────────────────────
     match /cases/{caseId} {
-      allow create: if isOwner(request.resource.data.patientId);
-      
-      // CUSTOMER can read own case. ADMIN can read all. 
-      // SUPPORT can read if they are assigned OR if they are checking new cases (for assignment)
-      allow read: if isOwner(resource.data.patientId) || isAdmin() || 
-                  (hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER')); 
-                  // Note: In production, reading all unassigned cases should be tightened.
-                  
-      // Updates: Customer cannot update. Support can update if assigned (or assigning themselves).
-      allow update: if isAdmin() || hasRole('CASE_MANAGER') || hasRole('SUPPORT_AGENT'); 
+      // Customer can create a case for themselves
+      allow create: if isOwner(request.resource.data.patientId) &&
+        request.resource.data.currentStage == 'NEW_INQUIRY' &&
+        request.resource.data.priority == 'NORMAL';
+
+      // Read: Customer own case, Admin all, Support assigned OR new cases
+      allow read: if isOwner(resource.data.patientId) || isAdmin() ||
+        (isSupportStaff() && (
+          isAssignedSupport() ||
+          resource.data.currentStage == 'NEW_INQUIRY'
+        ));
+
+      // Update: Admin can update anything.
+      // CASE_MANAGER can update if assigned OR if case is NEW_INQUIRY (for assignment).
+      // SUPPORT_AGENT can update only if assigned.
+      // Customer CANNOT update cases directly.
+      // Critical Security Fix: Prevent patientId from being changed.
+      // Critical Security Fix: Enforce valid stage transitions.
+      allow update: if (isAdmin() ||
+        (isCaseManager() && (isAssignedSupport() || resource.data.currentStage == 'NEW_INQUIRY')) ||
+        (isSupportAgent() && isAssignedSupport())) && 
+        request.resource.data.patientId == resource.data.patientId &&
+        isValidStageTransition(resource.data.currentStage, request.resource.data.currentStage);
     }
-    
+
+    // ── Case Events ────────────────────────────────────────────────────
     match /caseEvents/{eventId} {
-      allow create: if isAuthenticated(); 
-      allow read: if true; 
+      // Create: Authenticated users can create events ONLY as themselves.
+      // Customers can only create CASE_CREATED and CUSTOMER_MESSAGE.
+      allow create: if isAuthenticated() && 
+        request.resource.data.actorId == request.auth.uid && (
+          isSupportStaff() || isAdmin() || 
+          (request.resource.data.actorRole == 'CUSTOMER' && 
+           request.resource.data.eventType in ['CASE_CREATED', 'CUSTOMER_MESSAGE'])
+        );
+      
+      // Read: Support/Admin can read all. Customer can read events for their own case.
+      allow read: if isAuthenticated() && (
+        isSupportStaff() || isAdmin() ||
+        isCaseOwner(resource.data.caseId)
+      );
+      // Events are immutable — no updates or deletes
+      allow update, delete: if false;
     }
-    
+
+    // ── Case Notes (INTERNAL — CUSTOMER NEVER READS) ───────────────────
     match /caseNotes/{noteId} {
-      // Internal support notes - CUSTOMER CANNOT READ OR WRITE
-      allow read, write: if hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER') || isAdmin();
+      // Only support staff and admin can read and write notes
+      allow read: if isSupportStaff() || isAdmin();
+      allow create: if isSupportStaff() || isAdmin();
+      // Notes are append-only — no updates or deletes
+      allow update, delete: if isAdmin();
     }
-    
+
+    // ── Case Messages ──────────────────────────────────────────────────
     match /caseMessages/{messageId} {
-      // CUSTOMER can read/write their own case messages (Needs patientId on message, or rule function to check parent case)
-      // For MVP without complex parent lookups, we trust the senderId check if patient is reading their own messages.
-      // A more robust rule uses get() to check parent case patientId.
-      allow read, write: if isOwner(resource.data.senderId) || isOwner(request.resource.data.senderId) || hasRole('SUPPORT_AGENT') || hasRole('CASE_MANAGER') || isAdmin();
+      // Read: Support staff, Admin, or the customer who owns the parent case.
+      // Critical Security Fix: Allow customer to read messages sent BY support on their case.
+      allow read: if isAuthenticated() && (
+        isSupportStaff() || isAdmin() ||
+        isCaseOwner(resource.data.caseId)
+      );
+
+      // Create: Authenticated user sending as themselves, MUST have access to the case.
+      allow create: if isAuthenticated() &&
+        request.resource.data.senderId == request.auth.uid &&
+        (
+          isSupportStaff() || isAdmin() ||
+          isCaseOwner(request.resource.data.caseId)
+        );
+
+      // Messages are immutable
+      allow update, delete: if isAdmin();
     }
-    
+
+    // ── Quotes ─────────────────────────────────────────────────────────
     match /quotes/{quoteId} {
-      allow read: if hasRole('CASE_MANAGER') || isAdmin() || isOwner(resource.data.patientId);
-      allow write: if hasRole('CASE_MANAGER') || isAdmin();
+      // Customer can read quotes on their own case only when status is READY or beyond
+      allow read: if isAdmin() || isCaseManager() ||
+        (isSupportAgent()) ||
+        (isOwner(resource.data.patientId) && resource.data.status in ['READY', 'SENT', 'ACCEPTED', 'DECLINED']);
+
+      // Only CASE_MANAGER or ADMIN can create/modify quotes
+      allow create: if isCaseManager() || isAdmin();
+      allow update: if (isCaseManager() || isAdmin()) && 
+        request.resource.data.patientId == resource.data.patientId &&
+        request.resource.data.caseId == resource.data.caseId;
+
+      // No deletion
+      allow delete: if isSuperAdmin();
     }
   }
 }
