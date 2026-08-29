@@ -138,7 +138,30 @@ service cloud.firestore {
 
     match /acquisitionReviews/{reviewId} {
       allow read: if isAdmin() || isDataReviewer();
-      allow write: if isAdmin() || isDataReviewer();
+      allow create: if false; // Backend only
+      allow update: if (isAdmin() || isDataReviewer()) &&
+        request.resource.data.sourceId == resource.data.sourceId &&
+        request.resource.data.candidateData == resource.data.candidateData &&
+        request.resource.data.rawRecordId == resource.data.rawRecordId &&
+        request.resource.data.normalizationRecordId == resource.data.normalizationRecordId &&
+        request.resource.data.matchType == resource.data.matchType &&
+        (request.resource.data.status == resource.data.status || 
+         request.resource.data.reviewerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    match /fieldConflicts/{conflictId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow create: if false; // Backend only
+      allow update: if (isAdmin() || isDataReviewer()) &&
+        request.resource.data.entityId == resource.data.entityId &&
+        request.resource.data.fieldName == resource.data.fieldName &&
+        request.resource.data.canonicalValue == resource.data.canonicalValue &&
+        request.resource.data.candidateValues == resource.data.candidateValues &&
+        (request.resource.data.status == resource.data.status || 
+         request.resource.data.resolvedBy == request.auth.uid) &&
+        (resource.data.status == 'PENDING'); // Can only transition from PENDING
+      allow delete: if isAdmin();
     }
 
     match /acquisitionJobs/{jobId} {
@@ -177,6 +200,11 @@ service cloud.firestore {
         (isCaseManager() && (isAssignedSupport() || resource.data.currentStage == 'NEW_INQUIRY')) ||
         (isSupportAgent() && isAssignedSupport())) && 
         request.resource.data.patientId == resource.data.patientId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        (!('firstResponseAt' in resource.data) || resource.data.firstResponseAt == null || request.resource.data.firstResponseAt == resource.data.firstResponseAt) &&
+        (!('quotePreparedAt' in resource.data) || resource.data.quotePreparedAt == null || request.resource.data.quotePreparedAt == resource.data.quotePreparedAt) &&
+        (!('quoteSentAt' in resource.data) || resource.data.quoteSentAt == null || request.resource.data.quoteSentAt == resource.data.quoteSentAt) &&
+        (!('closedAt' in resource.data) || resource.data.closedAt == null || request.resource.data.closedAt == resource.data.closedAt) &&
         isValidStageTransition(resource.data.currentStage, request.resource.data.currentStage);
     }
 
@@ -239,12 +267,56 @@ service cloud.firestore {
 
       // Only CASE_MANAGER or ADMIN can create/modify quotes
       allow create: if isCaseManager() || isAdmin();
-      allow update: if (isCaseManager() || isAdmin()) && 
+      allow update: if (
+        (isCaseManager() || isAdmin()) && 
         request.resource.data.patientId == resource.data.patientId &&
-        request.resource.data.caseId == resource.data.caseId;
+        request.resource.data.caseId == resource.data.caseId &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.hospitalId == resource.data.hospitalId
+      ) || (
+        isOwner(resource.data.patientId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+        resource.data.status == 'SENT' &&
+        request.resource.data.status in ['ACCEPTED', 'DECLINED']
+      );
 
       // No deletion
       allow delete: if isSuperAdmin();
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isOwner(resource.data.userId);
+      // Backend/Support/Admin can create notifications. Customers do not create them.
+      allow create: if isAuthenticated() && (isSupportStaff() || isAdmin() || isOwner(request.resource.data.userId));
+      // User can only update the 'read' flag on their own notifications
+      allow update: if isOwner(resource.data.userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
+
+    // ── AI Assistant Collections ───────────────────────────────────────
+    
+    match /aiConversations/{conversationId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId);
+      allow update: if (isOwner(resource.data.userId) || isAdmin()) &&
+        request.resource.data.userId == resource.data.userId; // Cannot change owner
+      allow delete: if isAdmin();
+    }
+
+    match /aiMessages/{messageId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isOwner(request.resource.data.userId) &&
+        request.resource.data.role in ['user', 'assistant', 'system'];
+      allow update, delete: if false; // Messages are immutable
+    }
+
+    match /aiSafetyEvents/{eventId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if false; // Backend only writes safety events
+      allow update, delete: if false; // Events are immutable
     }
   }
 }

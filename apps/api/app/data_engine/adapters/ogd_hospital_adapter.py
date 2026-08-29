@@ -51,16 +51,18 @@ class OgdHospitalAdapter(BaseSourceAdapter):
         allowed_care_types = [
             "Hospital",
             "Medical College / Institute",
+            "Medical College / Institute, Hospital",
+            "Medical College / Institute/Hospital",
+            "Medical College / Institute/ Hospital",
             "Nursing Home",
             "Maternity Home",
             "Sub Divisional Hospital",
-            "District Hospital"
+            "District Hospital",
+            "Hospital, Clinic"
         ]
         
         care_type = _get_val("Hospital_Care_Type")
         if not care_type or care_type not in allowed_care_types:
-            # We raise a special exception or just return a dict that the pipeline handles?
-            # To be clean, we can return {"_exclude": True, "reason": "UNSUPPORTED_CARE_TYPE", "careType": care_type}
             return {
                 "_exclude": True,
                 "reason": "UNSUPPORTED_CARE_TYPE",
@@ -73,9 +75,11 @@ class OgdHospitalAdapter(BaseSourceAdapter):
         district = _get_val("District")
         pincode = _get_val("Pincode")
         address = _get_val("Address_Original_First_Line")
+        coords = _get_val("Location_Coordinates")
         
         # Calculate Deterministic ID
-        id_string = f"{name}|{state or ''}|{district or ''}|{pincode or ''}"
+        # Including address and coordinates to prevent collisions (e.g. 25 collisions in initial dataset)
+        id_string = f"{name}|{state or ''}|{district or ''}|{pincode or ''}|{address or ''}|{coords or ''}"
         external_id = hashlib.sha256(id_string.encode('utf-8')).hexdigest()
 
         # Handle City gracefully without fabricating

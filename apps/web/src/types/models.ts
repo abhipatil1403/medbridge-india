@@ -22,7 +22,12 @@ export type CaseEventType =
   | 'SUPPORT_MESSAGE'
   | 'NOTE_ADDED'
   | 'QUOTE_CREATED'
-  | 'QUOTE_UPDATED';
+  | 'QUOTE_UPDATED'
+  | 'QUOTE_READY'
+  | 'QUOTE_SENT'
+  | 'QUOTE_ACCEPTED'
+  | 'QUOTE_DECLINED'
+  | 'CASE_CLOSED';
 
 export type QuoteStatus = 'DRAFT' | 'UNDER_REVIEW' | 'READY' | 'SENT' | 'ACCEPTED' | 'DECLINED';
 
@@ -78,17 +83,28 @@ export const STAGE_CONFIG: Record<CaseStage, { color: string }> = {
 export interface ProviderBase {
   id?: string;
   name: string;
-  city: string;
+  city: string | null;
+  state?: string | null;
+  district?: string | null;
+  town?: string | null;
+  village?: string | null;
   specialties: string[];
   treatments: string[];
   status: ProviderStatus;
   source: string;
   verificationStatus: string;
   lastCheckedAt: string;
+  _provenance?: Record<string, any>;
 }
 
 export interface Hospital extends ProviderBase {
   accreditation?: string;
+  careType?: string | null;
+  category?: string | null;
+  facilities?: string[];
+  beds?: number | null;
+  emergencyServices?: string | null;
+  systemsOfMedicine?: string[];
 }
 
 export interface Doctor extends ProviderBase {
@@ -121,6 +137,7 @@ export interface Case {
   patientId: string;
   selectedProviderId?: string;
   selectedHospitalId?: string;
+  providerName?: string;
   treatmentId: string;
   treatmentName?: string;
   preferredLocation: string;
@@ -136,6 +153,12 @@ export interface Case {
   assignedCaseManagerId?: string;
   assignedAt?: string;
   assignedBy?: string;
+
+  // SLA timestamps
+  firstResponseAt?: string;
+  quotePreparedAt?: string;
+  quoteSentAt?: string;
+  closedAt?: string;
 
   createdAt: string;
   updatedAt: string;
@@ -186,6 +209,29 @@ export interface Quote {
   updatedAt: string;
 }
 
+// ── Notifications ────────────────────────────────────────────────────
+
+export type NotificationType = 
+  | 'CASE_ASSIGNED'
+  | 'SUPPORT_RESPONSE'
+  | 'QUOTE_READY'
+  | 'QUOTE_SENT'
+  | 'QUOTE_ACCEPTED'
+  | 'QUOTE_DECLINED'
+  | 'CASE_CLOSED';
+
+export interface Notification {
+  id?: string;
+  userId: string;
+  caseId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Admin Models ─────────────────────────────────────────────────────
 
 export type SourceTier = 'TIER_1' | 'TIER_2' | 'TIER_3';
@@ -227,6 +273,7 @@ export interface AcquisitionJob {
   recordsParsed: number;
   recordsAccepted: number;
   recordsExcluded: number;
+  excludedByCareType?: Record<string, number>;
   recordsRejected: number;
   recordsChanged: number;
   recordsUnchanged: number;
@@ -278,23 +325,24 @@ export interface Treatment {
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
 
 export type MatchType = 'EXACT_MATCH' | 'PROBABLE_MATCH' | 'POSSIBLE_MATCH' | 'NO_MATCH';
-export type AcquisitionReviewStatus = 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+export type AcquisitionReviewStatus = 'PENDING' | 'APPROVED_MERGE' | 'APPROVED_NEW_DRAFT' | 'REJECTED';
 
 export interface AcquisitionReview {
-  id?: string;
+  id: string;
   sourceId: string;
-  rawRecordId: string;
-  normalizationRecordId: string;
-  entityType: 'HOSPITAL';
-  entityId?: string; // Present if EXACT_MATCH or linked by admin
-  matchType: MatchType;
-  status: AcquisitionReviewStatus;
+  sourceType: string;
   candidateData: any;
+  matchType: 'EXACT_MATCH' | 'PROBABLE_MATCH' | 'POSSIBLE_MATCH' | 'NO_MATCH';
+  potentialMatches: string[];
+  status: AcquisitionReviewStatus;
   reviewerId?: string;
   reviewerNotes?: string;
-  retrievedAt: string;
-  createdAt: string;
+  rejectionReason?: string;
   reviewedAt?: string;
+  createdAt: string;
+  entityId?: string;
+  rawRecordId?: string;
+  normalizationRecordId?: string;
 }
 
 export interface CorrectionRequest {
@@ -336,3 +384,63 @@ export interface AuditLog {
   timestamp: string;
   metadata?: Record<string, any>;
 }
+
+// ── Multi-Source Conflicts ───────────────────────────────────────────
+
+export interface FieldConflict {
+  id?: string;
+  entityType: 'HOSPITAL' | 'DOCTOR';
+  entityId: string;
+  fieldName: string;
+  canonicalValue: any;
+  candidateValues: {
+    sourceId: string;
+    value: any;
+    sourceRecordId: string;
+    retrievedAt: string;
+  }[];
+  status: 'PENDING' | 'RESOLVED_CANONICAL' | 'RESOLVED_SOURCE' | 'RESOLVED_MANUAL' | 'REJECTED' | 'IGNORED';
+  resolution?: any;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  reviewerNotes?: string;
+  detectedAt: string;
+}
+
+// ── AI Assistant Models ──────────────────────────────────────────────
+
+export interface AIConversation {
+  id?: string;
+  userId: string;
+  title?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AIMessageRole = 'system' | 'user' | 'assistant';
+
+export interface AIMessage {
+  id?: string;
+  conversationId: string;
+  userId: string;
+  role: AIMessageRole;
+  content: string;
+  toolCalls?: any[];
+  timestamp: string;
+}
+
+export type AISafetyEventType = 
+  | 'HIGH_RISK_MEDICAL_REQUEST' 
+  | 'PROMPT_INJECTION_ATTEMPT' 
+  | 'UNAUTHORIZED_DATA_REQUEST' 
+  | 'TOOL_ACCESS_DENIED';
+
+export interface AISafetyEvent {
+  id?: string;
+  conversationId: string;
+  userId: string;
+  eventType: AISafetyEventType;
+  details?: string;
+  timestamp: string;
+}
+

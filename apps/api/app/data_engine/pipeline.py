@@ -129,13 +129,16 @@ def run_pipeline(source_id: str):
         excluded = 0
         errors = 0
         
+        excluded_by_care_type = {}
+        
         for item in parsed_items:
             try:
                 # 5. Normalize
                 normalized_data = adapter.normalize(item, raw_record.retrievedAt, raw_record.rawRecordId)
                 if normalized_data and normalized_data.get("_exclude"):
-                    # Log the exclusion internally
                     excluded += 1
+                    care_type = normalized_data.get("careType") or "UNKNOWN"
+                    excluded_by_care_type[care_type] = excluded_by_care_type.get(care_type, 0) + 1
                     continue
                     
                 norm_record = create_normalization_record(raw_record.rawRecordId, source_id, "HOSPITAL", normalized_data.get("externalIdentifier", ""), normalized_data)
@@ -154,6 +157,22 @@ def run_pipeline(source_id: str):
                 
                 # 8. Provenance / Review Routing
                 create_provenance_records(candidate, match_id, match_level.value, norm_record.normalizationRecordId)
+                
+                if match_level.value == "EXACT_MATCH" and match_id:
+                    # Phase 7: Field-by-field conflict detection
+                    from .conflict_detection import detect_and_route_conflicts
+                    detect_and_route_conflicts(
+                        candidate.model_dump(), 
+                        match_id, 
+                        candidate.retrievedAt,
+                        candidate.sourceId,
+                        candidate.rawRecordId
+                    )
+                else:
+                    # Ensure it goes to acquisitionReviews for PROBABLE_MATCH, POSSIBLE_MATCH, NO_MATCH
+                    # (This is already handled inside create_provenance_records)
+                    pass
+
                 accepted += 1
                 
             except Exception as e:
@@ -173,6 +192,7 @@ def run_pipeline(source_id: str):
             "recordsAccepted": accepted,
             "recordsRejected": rejected,
             "recordsExcluded": excluded,
+            "excludedByCareType": excluded_by_care_type,
             "recordsChanged": accepted, # simplified for now
             "errorCount": errors
         })

@@ -20,6 +20,7 @@ import {
   QuoteStatus,
   STAGE_TRANSITIONS,
 } from '../../types/models';
+import { createNotification } from '../cases/notificationService';
 
 // ── Case Queries ─────────────────────────────────────────────────────
 
@@ -75,16 +76,28 @@ export async function assignCase(
     updatedAt: now,
   };
 
-  await updateDoc(caseRef, updateData);
+  const caseSnap = await getDoc(caseRef);
+  if (caseSnap.exists()) {
+    const caseData = caseSnap.data() as Case;
+    await updateDoc(caseRef, updateData);
 
-  await addDoc(collection(db, 'caseEvents'), {
-    caseId,
-    actorId: assignerId,
-    actorRole: assignerRole,
-    eventType: 'CASE_ASSIGNED',
-    metadata: { assignedTo: assigneeId },
-    timestamp: now,
-  } as CaseEvent);
+    await addDoc(collection(db, 'caseEvents'), {
+      caseId,
+      actorId: assignerId,
+      actorRole: assignerRole,
+      eventType: 'CASE_ASSIGNED',
+      metadata: { assignedTo: assigneeId },
+      timestamp: now,
+    } as CaseEvent);
+
+    await createNotification({
+      userId: caseData.patientId,
+      caseId,
+      type: 'CASE_ASSIGNED',
+      title: 'Case Assigned',
+      message: `Your case ${caseData.humanReference || caseId} has been assigned to a support agent.`,
+    });
+  }
 }
 
 // ── Stage Transitions ────────────────────────────────────────────────
@@ -209,6 +222,9 @@ export async function createQuoteDraft(
     exclusions: string[];
   }
 ): Promise<string> {
+  if (data.estimatedAmount < 0) {
+    throw new Error('Quote amount cannot be negative');
+  }
   const now = new Date().toISOString();
 
   const quote: Quote = {
@@ -247,7 +263,30 @@ export async function updateQuoteDraft(
   actorRole: string,
   updates: Partial<Pick<Quote, 'estimatedAmount' | 'currency' | 'inclusions' | 'exclusions' | 'status'>>
 ): Promise<void> {
+  if (updates.estimatedAmount !== undefined && updates.estimatedAmount < 0) {
+    throw new Error('Quote amount cannot be negative');
+  }
+
   const quoteRef = doc(db, 'quotes', quoteId);
+  const quoteSnap = await getDoc(quoteRef);
+  if (!quoteSnap.exists()) throw new Error('Quote not found');
+  const currentQuote = quoteSnap.data() as Quote;
+
+  // Validate state transitions
+  if (updates.status && updates.status !== currentQuote.status) {
+    const validTransitions: Record<QuoteStatus, QuoteStatus[]> = {
+      DRAFT: ['READY'],
+      UNDER_REVIEW: ['READY', 'DRAFT'], // Allow back and forth internally if needed, but per plan DRAFT->READY
+      READY: ['SENT', 'DRAFT'],
+      SENT: ['ACCEPTED', 'DECLINED'],
+      ACCEPTED: [],
+      DECLINED: []
+    };
+    if (!validTransitions[currentQuote.status]?.includes(updates.status)) {
+      throw new Error(`Invalid quote transition from ${currentQuote.status} to ${updates.status}`);
+    }
+  }
+
   const now = new Date().toISOString();
 
   await updateDoc(quoteRef, {
@@ -255,14 +294,50 @@ export async function updateQuoteDraft(
     updatedAt: now,
   });
 
-  await addDoc(collection(db, 'caseEvents'), {
-    caseId,
-    actorId,
-    actorRole,
-    eventType: 'QUOTE_UPDATED',
-    metadata: updates.status ? { status: updates.status } : undefined,
-    timestamp: now,
-  } as CaseEvent);
+  if (updates.status && updates.status !== currentQuote.status) {
+    const caseRef = doc(db, 'cases', caseId);
+    const caseSnap = await getDoc(caseRef);
+    const caseData = caseSnap.exists() ? caseSnap.data() as Case : null;
+    
+    // SLA Tracking
+    if (caseData) {
+      if (updates.status === 'READY' && !caseData.quotePreparedAt) {
+        await updateDoc(caseRef, { quotePreparedAt: now, updatedAt: now });
+      } else if (updates.status === 'SENT' && !caseData.quoteSentAt) {
+        await updateDoc(caseRef, { quoteSentAt: now, updatedAt: now });
+        
+        // Notify Customer
+        await createNotification({
+          userId: caseData.patientId,
+          caseId,
+          type: 'QUOTE_SENT',
+          title: 'Quote Received',
+          message: `A new quote is available for your case ${caseData.humanReference || caseId}.`,
+        });
+      }
+    }
+    
+    const eventType = updates.status === 'READY' ? 'QUOTE_READY' : 
+                      updates.status === 'SENT' ? 'QUOTE_SENT' : 'QUOTE_UPDATED';
+
+    await addDoc(collection(db, 'caseEvents'), {
+      caseId,
+      actorId,
+      actorRole,
+      eventType: eventType as CaseEvent['eventType'],
+      metadata: { status: updates.status },
+      timestamp: now,
+    } as CaseEvent);
+  } else {
+    // Just a content update
+    await addDoc(collection(db, 'caseEvents'), {
+      caseId,
+      actorId,
+      actorRole,
+      eventType: 'QUOTE_UPDATED',
+      timestamp: now,
+    } as CaseEvent);
+  }
 }
 
 /** Get quotes for a case */

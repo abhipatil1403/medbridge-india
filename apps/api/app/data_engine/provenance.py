@@ -37,6 +37,10 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
     # 3. Pipeline generates an AcquisitionReview for all records, so human reviewer can approve
     # exact matches (fields might differ) or link NO_MATCH / PROBABLE_MATCH.
     
+    # Phase 7 Update: EXACT_MATCHes are routed to FieldConflicts engine instead of a full entity AcquisitionReview
+    if match_level == "EXACT_MATCH":
+        return
+        
     db.collection("acquisitionReviews").add({
         "sourceId": candidate.sourceId,
         "rawRecordId": candidate.rawRecordId,

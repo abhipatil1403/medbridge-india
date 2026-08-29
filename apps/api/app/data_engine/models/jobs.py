@@ -12,6 +12,7 @@ class AcquisitionJob(BaseModel):
     recordsParsed: int = 0
     recordsAccepted: int = 0
     recordsExcluded: int = 0
+    excludedByCareType: dict = Field(default_factory=dict)
     recordsRejected: int = 0
     recordsChanged: int = 0
     recordsUnchanged: int = 0

@@ -22,38 +22,62 @@ def normalize_string_for_match(s: str) -> str:
 def deduplicate_hospital(candidate: HospitalCandidate) -> Tuple[MatchLevel, Optional[str]]:
     """
     Returns (MatchLevel, existing_canonical_id_if_any)
-    This is a deterministic first-pass matching strategy.
     """
     db = get_db()
     hospitals_ref = db.collection("hospitals")
     
-    # 1. Search by exact city and normalized name
     c_name = normalize_string_for_match(candidate.name)
-    c_city = normalize_string_for_match(candidate.city)
+    c_state = normalize_string_for_match(candidate.state or "")
+    c_district = normalize_string_for_match(candidate.district or "")
+    c_pincode = normalize_string_for_match(candidate.pincode or "")
     
-    # For a real implementation, we would query by city and iterate through results to find matches.
-    # Since Firestore doesn't support complex text search, we pull by city and compare locally.
-    
-    # Capitalize city for Firestore standard query (assuming canonical cities are Title Case)
-    city_query_val = candidate.city.strip().title()
-    query = hospitals_ref.where("city", "==", city_query_val).limit(100)
-    
-    results = query.stream()
-    
+    # We query by state if available to limit results, else we might have to scan more
+    if candidate.state:
+        query = hospitals_ref.where("state", "==", candidate.state).stream()
+    else:
+        # Fallback to city or just a limited scan if we don't have state
+        if candidate.city:
+            query = hospitals_ref.where("city", "==", candidate.city.strip().title()).stream()
+        else:
+            query = hospitals_ref.limit(500).stream() # Dangerous in prod, but ok for demo
+            
     best_match_level = MatchLevel.NO_MATCH
     best_match_id = None
     
-    for doc in results:
+    for doc in query:
         data = doc.to_dict()
-        existing_name = normalize_string_for_match(data.get("name", ""))
+        e_name = normalize_string_for_match(data.get("name", ""))
+        e_state = normalize_string_for_match(data.get("state", ""))
+        e_district = normalize_string_for_match(data.get("district", ""))
+        e_pincode = normalize_string_for_match(data.get("pincode", ""))
         
-        if existing_name == c_name:
-            return MatchLevel.EXACT_MATCH, doc.id
+        # EXACT MATCH criteria: same name, state, district, pincode
+        # If any of these are missing in source or canonical, we can't be EXACT_MATCH securely, downgrade to PROBABLE.
+        name_match = (c_name == e_name and c_name != "")
+        
+        if name_match:
+            state_match = (c_state == e_state and c_state != "")
+            district_match = (c_district == e_district and c_district != "")
+            pincode_match = (c_pincode == e_pincode and c_pincode != "")
             
-        # Probable Match logic (e.g. one string is completely inside another)
-        if c_name in existing_name or existing_name in c_name:
-            if best_match_level != MatchLevel.PROBABLE_MATCH:
-                best_match_level = MatchLevel.PROBABLE_MATCH
-                best_match_id = doc.id
-    
+            if state_match and district_match and pincode_match:
+                # Strong Exact Match
+                return MatchLevel.EXACT_MATCH, doc.id
+            elif state_match and district_match:
+                # Same name, state, district, different/missing pincode
+                if best_match_level not in [MatchLevel.EXACT_MATCH, MatchLevel.PROBABLE_MATCH]:
+                    best_match_level = MatchLevel.PROBABLE_MATCH
+                    best_match_id = doc.id
+            elif state_match:
+                # Same name, state, different district
+                if best_match_level == MatchLevel.NO_MATCH:
+                    best_match_level = MatchLevel.POSSIBLE_MATCH
+                    best_match_id = doc.id
+        else:
+            # Check substrings
+            if (c_name in e_name or e_name in c_name) and len(c_name) > 5 and len(e_name) > 5:
+                if best_match_level == MatchLevel.NO_MATCH:
+                    best_match_level = MatchLevel.POSSIBLE_MATCH
+                    best_match_id = doc.id
+
     return best_match_level, best_match_id

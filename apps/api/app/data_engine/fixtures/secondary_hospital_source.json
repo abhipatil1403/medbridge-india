@@ -1,0 +1,35 @@
+[
+  {
+    "id": "SEC_HOSP_001",
+    "hospital_name": "Apollo Hospitals, Chennai ",
+    "location_city": "Chennai_Conflict",
+    "location_country": "India",
+    "specialties_offered": "Cardiology",
+    "procedures": "CABG",
+    "contact_website": "https://chennai.apollohospitals.com/",
+    "telephone": "1234567890",
+    "totalBeds": "200"
+  },
+  {
+    "id": "SEC_HOSP_002",
+    "hospital_name": "Fortis Escorts Heart Institute",
+    "location_city": "New Delhi",
+    "location_country": "India",
+    "specialties_offered": "Cardiology",
+    "procedures": "Heart Transplant, Valve Replacement",
+    "contact_website": "",
+    "telephone": "9876543210",
+    "totalBeds": "300"
+  },
+  {
+    "id": "SEC_HOSP_NEW_001",
+    "hospital_name": "Completely New Hospital",
+    "location_city": "Mumbai",
+    "location_country": "India",
+    "specialties_offered": "Orthopedics",
+    "procedures": "Knee Replacement",
+    "contact_website": "https://newhospital.com",
+    "telephone": "5555555555",
+    "totalBeds": "100"
+  }
+]

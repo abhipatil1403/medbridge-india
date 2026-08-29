@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getCaseById } from '../../../../features/cases/caseService';
+import { getCaseById, getCaseEvents, acceptQuote, declineQuote } from '../../../../features/cases/caseService';
 import { getCaseMessages, sendCaseMessage } from '../../../../features/cases/messageService';
-import { Case, CaseMessage, STAGE_LABELS } from '../../../../types/models';
+import { getCaseQuotes } from '../../../../features/support/supportService'; // We can use this to fetch quotes since backend rules protect it. Actually let's use it.
+import { Case, CaseMessage, CaseEvent, Quote, STAGE_LABELS } from '../../../../types/models';
 import { useAuth } from '../../../../components/AuthProvider';
 import { ProtectedRoute } from '../../../../components/ProtectedRoute';
 import { useParams } from 'next/navigation';
@@ -30,9 +31,12 @@ export default function CaseDetailPage() {
   const { currentUser } = useAuth();
   const [caseData, setCaseData] = useState<Case | null>(null);
   const [messages, setMessages] = useState<CaseMessage[]>([]);
+  const [events, setEvents] = useState<CaseEvent[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [actioningQuote, setActioningQuote] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
@@ -41,8 +45,18 @@ export default function CaseDetailPage() {
         const data = await getCaseById(id, currentUser.uid);
         setCaseData(data);
         if (data) {
-          const ms = await getCaseMessages(id);
+          const [ms, ev, qs] = await Promise.all([
+            getCaseMessages(id),
+            getCaseEvents(id),
+            getCaseQuotes(id),
+          ]);
           setMessages(ms);
+          
+          // Filter customer-safe events
+          const safeTypes = ['CASE_CREATED', 'SUPPORT_RESPONSE', 'QUOTE_READY', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'QUOTE_DECLINED', 'CASE_CLOSED'];
+          setEvents(ev.filter(e => safeTypes.includes(e.eventType) || (e.actorRole === 'CUSTOMER' && e.eventType === 'CUSTOMER_MESSAGE')));
+          
+          setQuotes(qs.filter(q => ['READY', 'SENT', 'ACCEPTED', 'DECLINED'].includes(q.status)));
         }
       } catch (err) {
         setError('Unable to load case details.');
@@ -70,6 +84,27 @@ export default function CaseDetailPage() {
       console.error(err);
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleQuoteAction = async (quoteId: string, action: 'ACCEPT' | 'DECLINE') => {
+    if (!currentUser || !caseData) return;
+    setActioningQuote(true);
+    setError(null);
+    try {
+      if (action === 'ACCEPT') {
+        await acceptQuote(quoteId, caseData.id!, currentUser.uid);
+      } else {
+        await declineQuote(quoteId, caseData.id!, currentUser.uid);
+      }
+      // Reload quotes
+      const qs = await getCaseQuotes(caseData.id!);
+      setQuotes(qs.filter(q => ['READY', 'SENT', 'ACCEPTED', 'DECLINED'].includes(q.status)));
+    } catch (err) {
+      setError('Unable to process quote action. Please try again.');
+      console.error(err);
+    } finally {
+      setActioningQuote(false);
     }
   };
 
@@ -176,6 +211,88 @@ export default function CaseDetailPage() {
               {sending ? 'Sending...' : 'Send'}
             </button>
           </div>
+        </div>
+
+        {/* Quotes Section */}
+        {quotes.length > 0 && (
+          <div className="bg-white border rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4 border-b pb-2 text-gray-900">Available Quotes</h2>
+            <div className="space-y-4">
+              {quotes.map(quote => (
+                <div key={quote.id} className="border p-4 rounded-lg bg-gray-50">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-lg font-bold text-gray-900">{quote.currency} {quote.estimatedAmount.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">Status: <span className="font-medium">{quote.status}</span></p>
+                    </div>
+                    {quote.status === 'SENT' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleQuoteAction(quote.id!, 'DECLINE')}
+                          disabled={actioningQuote}
+                          className="px-4 py-1.5 border border-red-200 text-red-600 rounded-md text-sm hover:bg-red-50 disabled:opacity-50"
+                        >
+                          Decline
+                        </button>
+                        <button
+                          onClick={() => handleQuoteAction(quote.id!, 'ACCEPT')}
+                          disabled={actioningQuote}
+                          className="px-4 py-1.5 bg-green-600 text-white rounded-md text-sm hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Accept
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    {quote.inclusions.length > 0 && (
+                      <div>
+                        <p className="text-gray-500 font-medium mb-1">Inclusions</p>
+                        <ul className="list-disc list-inside text-gray-700">
+                          {quote.inclusions.map((inc, i) => <li key={i}>{inc}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                    {quote.exclusions.length > 0 && (
+                      <div>
+                        <p className="text-gray-500 font-medium mb-1">Exclusions</p>
+                        <ul className="list-disc list-inside text-gray-700">
+                          {quote.exclusions.map((exc, i) => <li key={i}>{exc}</li>)}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Timeline Section */}
+        <div className="bg-white border rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4 border-b pb-2 text-gray-900">Case Timeline</h2>
+          {events.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">No events to display.</p>
+          ) : (
+            <div className="space-y-4">
+              {events.map((ev, i) => (
+                <div key={ev.id || i} className="flex gap-3">
+                  <div className="flex flex-col items-center">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 mt-1.5" />
+                    {i < events.length - 1 && <div className="w-px flex-1 bg-gray-200" />}
+                  </div>
+                  <div className="pb-4">
+                    <p className="text-sm font-medium text-gray-900">
+                      {ev.eventType.replace(/_/g, ' ')}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(ev.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Case status footer — no internal details exposed */}

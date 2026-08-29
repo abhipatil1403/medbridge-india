@@ -61,6 +61,7 @@ export default function SupportCaseDetail() {
   const [quoteCurrency, setQuoteCurrency] = useState('USD');
   const [quoteInclusions, setQuoteInclusions] = useState('');
   const [quoteExclusions, setQuoteExclusions] = useState('');
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
   const [savingQuote, setSavingQuote] = useState(false);
 
   const isCaseManagerOrAbove =
@@ -88,14 +89,7 @@ export default function SupportCaseDetail() {
       setMessages(ms);
       setQuotes(qs);
 
-      // Pre-fill quote form if a draft exists
-      if (qs.length > 0) {
-        const draft = qs[0];
-        setQuoteAmount(String(draft.estimatedAmount || ''));
-        setQuoteCurrency(draft.currency || 'USD');
-        setQuoteInclusions((draft.inclusions || []).join(', '));
-        setQuoteExclusions((draft.exclusions || []).join(', '));
-      }
+      // Remove pre-fill logic from initial load, we will use a selected quote for editing
     } catch (err) {
       setError('Unable to load case details. Please try again.');
       console.error(err);
@@ -188,7 +182,23 @@ export default function SupportCaseDetail() {
     }
   };
 
-  const handleSaveQuote = async (status?: 'DRAFT' | 'UNDER_REVIEW' | 'READY') => {
+  const handleEditQuote = (quote: Quote) => {
+    setEditingQuoteId(quote.id!);
+    setQuoteAmount(String(quote.estimatedAmount || ''));
+    setQuoteCurrency(quote.currency || 'USD');
+    setQuoteInclusions((quote.inclusions || []).join(', '));
+    setQuoteExclusions((quote.exclusions || []).join(', '));
+  };
+
+  const handleNewQuote = () => {
+    setEditingQuoteId(null);
+    setQuoteAmount('');
+    setQuoteCurrency('USD');
+    setQuoteInclusions('');
+    setQuoteExclusions('');
+  };
+
+  const handleSaveQuote = async (status?: 'DRAFT' | 'UNDER_REVIEW' | 'READY' | 'SENT') => {
     if (!currentUser || !caseData || !isCaseManagerOrAbove) return;
     setSavingQuote(true);
     setError(null);
@@ -197,13 +207,14 @@ export default function SupportCaseDetail() {
       const exclusions = quoteExclusions.split(',').map(s => s.trim()).filter(Boolean);
       const amount = parseFloat(quoteAmount) || 0;
 
-      if (quotes.length > 0 && quotes[0].id) {
-        await updateQuoteDraft(quotes[0].id, caseData.id!, currentUser.uid, primaryRole || 'CASE_MANAGER', {
+      if (editingQuoteId) {
+        const quoteToUpdate = quotes.find(q => q.id === editingQuoteId);
+        await updateQuoteDraft(editingQuoteId, caseData.id!, currentUser.uid, primaryRole || 'CASE_MANAGER', {
           estimatedAmount: amount,
           currency: quoteCurrency,
           inclusions,
           exclusions,
-          status: status || quotes[0].status,
+          status: status || quoteToUpdate?.status || 'DRAFT',
         });
       } else {
         await createQuoteDraft(
@@ -221,6 +232,7 @@ export default function SupportCaseDetail() {
           }
         );
       }
+      setEditingQuoteId(null);
       await loadAll();
     } catch (err) {
       setError('Quote save failed.');
@@ -473,99 +485,128 @@ export default function SupportCaseDetail() {
             {/* Tab: Quote */}
             {activeTab === 'quote' && (
               <div className="bg-white border rounded-lg p-6">
-                <h2 className="text-lg font-semibold mb-2 text-gray-900">Quote Preparation</h2>
-                <p className="text-xs text-amber-600 mb-4 bg-amber-50 p-2 rounded border border-amber-200">
-                  Draft Quote — Estimated pricing is subject to provider confirmation. This is not a binding final quote.
-                </p>
-
-                {!isCaseManagerOrAbove ? (
-                  <div>
-                    {quotes.length > 0 ? (
-                      <div className="text-sm space-y-2">
-                        <p><span className="text-gray-500">Status:</span> {quotes[0].status}</p>
-                        <p><span className="text-gray-500">Amount:</span> {quotes[0].currency} {quotes[0].estimatedAmount.toLocaleString()}</p>
-                        {quotes[0].inclusions.length > 0 && <p><span className="text-gray-500">Inclusions:</span> {quotes[0].inclusions.join(', ')}</p>}
-                        {quotes[0].exclusions.length > 0 && <p><span className="text-gray-500">Exclusions:</span> {quotes[0].exclusions.join(', ')}</p>}
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Quotes</h2>
+                  {isCaseManagerOrAbove && (
+                    <button
+                      onClick={handleNewQuote}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      + New Quote
+                    </button>
+                  )}
+                </div>
+                
+                {/* Existing Quotes List */}
+                {quotes.length > 0 && (
+                  <div className="space-y-4 mb-6">
+                    {quotes.map(quote => (
+                      <div key={quote.id} className="border p-4 rounded-lg bg-gray-50 flex justify-between items-center">
+                        <div>
+                          <p className="text-sm font-bold text-gray-900">{quote.currency} {quote.estimatedAmount.toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">Status: <span className="font-medium">{quote.status}</span></p>
+                          <p className="text-xs text-gray-400">Updated: {new Date(quote.updatedAt).toLocaleString()}</p>
+                        </div>
+                        {isCaseManagerOrAbove && ['DRAFT', 'UNDER_REVIEW', 'READY'].includes(quote.status) && (
+                          <button
+                            onClick={() => handleEditQuote(quote)}
+                            className="bg-white border hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {isCaseManagerOrAbove && quote.status === 'READY' && (
+                          <button
+                            onClick={() => { handleEditQuote(quote); handleSaveQuote('SENT'); }}
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Send to Customer
+                          </button>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-gray-500">No quote has been drafted yet.</p>
-                    )}
+                    ))}
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                )}
+                {quotes.length === 0 && !editingQuoteId && (
+                  <p className="text-sm text-gray-500 text-center py-4 bg-gray-50 rounded mb-6">No quotes have been created yet.</p>
+                )}
+
+                {/* Quote Form */}
+                {isCaseManagerOrAbove && (editingQuoteId !== null || quotes.length === 0 || quoteAmount !== '') && (
+                  <div className="border-t pt-6 mt-6">
+                    <h3 className="text-md font-semibold mb-4 text-gray-900">
+                      {editingQuoteId ? 'Edit Quote' : 'Create New Quote'}
+                    </h3>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Amount</label>
+                          <input
+                            type="number"
+                            value={quoteAmount}
+                            onChange={e => setQuoteAmount(e.target.value)}
+                            className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+                            placeholder="e.g., 15000"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                          <select
+                            value={quoteCurrency}
+                            onChange={e => setQuoteCurrency(e.target.value)}
+                            className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+                          >
+                            <option value="USD">USD</option>
+                            <option value="INR">INR</option>
+                            <option value="EUR">EUR</option>
+                            <option value="GBP">GBP</option>
+                          </select>
+                        </div>
+                      </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Amount</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Inclusions (comma-separated)</label>
                         <input
-                          type="number"
-                          value={quoteAmount}
-                          onChange={e => setQuoteAmount(e.target.value)}
+                          type="text"
+                          value={quoteInclusions}
+                          onChange={e => setQuoteInclusions(e.target.value)}
                           className="w-full border border-gray-300 p-2 rounded-lg text-sm"
-                          placeholder="e.g., 15000"
+                          placeholder="e.g., Surgery, Hospital Stay, Post-op Care"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                        <select
-                          value={quoteCurrency}
-                          onChange={e => setQuoteCurrency(e.target.value)}
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Exclusions (comma-separated)</label>
+                        <input
+                          type="text"
+                          value={quoteExclusions}
+                          onChange={e => setQuoteExclusions(e.target.value)}
                           className="w-full border border-gray-300 p-2 rounded-lg text-sm"
+                          placeholder="e.g., Travel, Visa, Accommodation"
+                        />
+                      </div>
+                      <div className="flex gap-2 flex-wrap">
+                        <button
+                          onClick={() => handleSaveQuote('DRAFT')}
+                          disabled={savingQuote}
+                          className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                         >
-                          <option value="USD">USD</option>
-                          <option value="INR">INR</option>
-                          <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
-                        </select>
+                          {savingQuote ? 'Saving...' : 'Save Draft'}
+                        </button>
+                        <button
+                          onClick={() => handleSaveQuote('UNDER_REVIEW')}
+                          disabled={savingQuote}
+                          className="bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Mark Under Review
+                        </button>
+                        <button
+                          onClick={() => handleSaveQuote('READY')}
+                          disabled={savingQuote}
+                          className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Mark Ready
+                        </button>
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Inclusions (comma-separated)</label>
-                      <input
-                        type="text"
-                        value={quoteInclusions}
-                        onChange={e => setQuoteInclusions(e.target.value)}
-                        className="w-full border border-gray-300 p-2 rounded-lg text-sm"
-                        placeholder="e.g., Surgery, Hospital Stay, Post-op Care"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Exclusions (comma-separated)</label>
-                      <input
-                        type="text"
-                        value={quoteExclusions}
-                        onChange={e => setQuoteExclusions(e.target.value)}
-                        className="w-full border border-gray-300 p-2 rounded-lg text-sm"
-                        placeholder="e.g., Travel, Visa, Accommodation"
-                      />
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={() => handleSaveQuote('DRAFT')}
-                        disabled={savingQuote}
-                        className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        {savingQuote ? 'Saving...' : 'Save Draft'}
-                      </button>
-                      <button
-                        onClick={() => handleSaveQuote('UNDER_REVIEW')}
-                        disabled={savingQuote}
-                        className="bg-amber-600 hover:bg-amber-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Mark Under Review
-                      </button>
-                      <button
-                        onClick={() => handleSaveQuote('READY')}
-                        disabled={savingQuote}
-                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        Mark Ready
-                      </button>
-                    </div>
-                    {quotes.length > 0 && (
-                      <p className="text-xs text-gray-500">
-                        Current status: <span className="font-medium">{quotes[0].status}</span> · Last updated: {new Date(quotes[0].updatedAt).toLocaleString()}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>
@@ -655,6 +696,9 @@ export default function SupportCaseDetail() {
                 <div><span className="block text-gray-400">Patient ID</span><span className="font-mono">{caseData.patientId.slice(0, 8)}...</span></div>
                 <div><span className="block text-gray-400">Created</span>{new Date(caseData.createdAt).toLocaleString()}</div>
                 <div><span className="block text-gray-400">Updated</span>{new Date(caseData.updatedAt).toLocaleString()}</div>
+                {caseData.firstResponseAt && <div><span className="block text-gray-400">First Response SLA</span>{new Date(caseData.firstResponseAt).toLocaleString()}</div>}
+                {caseData.quoteSentAt && <div><span className="block text-gray-400">Quote Sent SLA</span>{new Date(caseData.quoteSentAt).toLocaleString()}</div>}
+                {caseData.closedAt && <div><span className="block text-gray-400">Closed SLA</span>{new Date(caseData.closedAt).toLocaleString()}</div>}
               </div>
             </div>
           </div>

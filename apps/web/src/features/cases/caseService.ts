@@ -1,4 +1,4 @@
-import { collection, addDoc, doc, getDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, updateDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../../lib/firebase/client';
 import { Case, CaseEvent } from '../../types/models';
 
@@ -70,4 +70,45 @@ export async function getCaseEvents(caseId: string): Promise<CaseEvent[]> {
   const q = query(eventsRef, where('caseId', '==', caseId), orderBy('timestamp', 'asc'));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CaseEvent));
+}
+
+/** Accept a quote (Customer only) */
+export async function acceptQuote(quoteId: string, caseId: string, patientId: string): Promise<void> {
+  const quoteRef = doc(db, 'quotes', quoteId);
+  const now = new Date().toISOString();
+
+  // Firestore rules will validate the transition SENT -> ACCEPTED and ownership
+  await updateDoc(quoteRef, {
+    status: 'ACCEPTED',
+    updatedAt: now,
+  });
+
+  await addDoc(collection(db, 'caseEvents'), {
+    caseId,
+    actorId: patientId,
+    actorRole: 'CUSTOMER',
+    eventType: 'QUOTE_ACCEPTED',
+    metadata: { quoteId },
+    timestamp: now,
+  } as CaseEvent);
+}
+
+/** Decline a quote (Customer only) */
+export async function declineQuote(quoteId: string, caseId: string, patientId: string): Promise<void> {
+  const quoteRef = doc(db, 'quotes', quoteId);
+  const now = new Date().toISOString();
+
+  await updateDoc(quoteRef, {
+    status: 'DECLINED',
+    updatedAt: now,
+  });
+
+  await addDoc(collection(db, 'caseEvents'), {
+    caseId,
+    actorId: patientId,
+    actorRole: 'CUSTOMER',
+    eventType: 'QUOTE_DECLINED',
+    metadata: { quoteId },
+    timestamp: now,
+  } as CaseEvent);
 }
