@@ -64,10 +64,33 @@ export async function getCaseByIdForSupport(caseId: string): Promise<Case | null
   return null;
 }
 
-/** Get case events for a given case, ordered chronologically */
+/** Get case events for a given case, ordered chronologically (Internal use) */
 export async function getCaseEvents(caseId: string): Promise<CaseEvent[]> {
   const eventsRef = collection(db, 'caseEvents');
   const q = query(eventsRef, where('caseId', '==', caseId), orderBy('timestamp', 'asc'));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CaseEvent));
+}
+
+/** Get only customer-visible case events (matches Firestore rules) */
+export async function getCustomerCaseEvents(caseId: string): Promise<CaseEvent[]> {
+  const eventsRef = collection(db, 'caseEvents');
+  const safeTypes = [
+    'CASE_CREATED', 
+    'CUSTOMER_MESSAGE', 
+    'SUPPORT_MESSAGE', 
+    'QUOTE_READY', 
+    'QUOTE_SENT', 
+    'QUOTE_ACCEPTED', 
+    'QUOTE_DECLINED', 
+    'CASE_CLOSED'
+  ];
+  const q = query(
+    eventsRef, 
+    where('caseId', '==', caseId), 
+    where('eventType', 'in', safeTypes),
+    orderBy('timestamp', 'asc')
+  );
   const snapshot = await getDocs(q);
   return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as CaseEvent));
 }

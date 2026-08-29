@@ -219,10 +219,20 @@ service cloud.firestore {
            request.resource.data.eventType in ['CASE_CREATED', 'CUSTOMER_MESSAGE'])
         );
       
-      // Read: Support/Admin can read all. Customer can read events for their own case.
+      // Read: Support/Admin can read all. Customer can read events for their own case IF event is customer-visible.
       allow read: if isAuthenticated() && (
         isSupportStaff() || isAdmin() ||
-        isCaseOwner(resource.data.caseId)
+        (isCaseOwner(resource.data.caseId) && 
+         resource.data.eventType in [
+           'CASE_CREATED', 
+           'CUSTOMER_MESSAGE', 
+           'SUPPORT_MESSAGE', 
+           'QUOTE_READY', 
+           'QUOTE_SENT', 
+           'QUOTE_ACCEPTED', 
+           'QUOTE_DECLINED', 
+           'CASE_CLOSED'
+         ])
       );
       // Events are immutable — no updates or deletes
       allow update, delete: if false;

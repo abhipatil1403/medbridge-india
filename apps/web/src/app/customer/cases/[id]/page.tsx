@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { getCaseById, getCaseEvents, acceptQuote, declineQuote } from '../../../../features/cases/caseService';
+import { getCaseById, getCustomerCaseEvents, acceptQuote, declineQuote } from '../../../../features/cases/caseService';
 import { getCaseMessages, sendCaseMessage } from '../../../../features/cases/messageService';
 import { getCaseQuotes } from '../../../../features/support/supportService'; // We can use this to fetch quotes since backend rules protect it. Actually let's use it.
 import { Case, CaseMessage, CaseEvent, Quote, STAGE_LABELS } from '../../../../types/models';
@@ -47,14 +47,13 @@ export default function CaseDetailPage() {
         if (data) {
           const [ms, ev, qs] = await Promise.all([
             getCaseMessages(id),
-            getCaseEvents(id),
+            getCustomerCaseEvents(id),
             getCaseQuotes(id),
           ]);
           setMessages(ms);
           
-          // Filter customer-safe events
-          const safeTypes = ['CASE_CREATED', 'SUPPORT_RESPONSE', 'QUOTE_READY', 'QUOTE_SENT', 'QUOTE_ACCEPTED', 'QUOTE_DECLINED', 'CASE_CLOSED'];
-          setEvents(ev.filter(e => safeTypes.includes(e.eventType) || (e.actorRole === 'CUSTOMER' && e.eventType === 'CUSTOMER_MESSAGE')));
+          // No need to filter safeTypes here; backend rules and query already enforce it
+          setEvents(ev);
           
           setQuotes(qs.filter(q => ['READY', 'SENT', 'ACCEPTED', 'DECLINED'].includes(q.status)));
         }
