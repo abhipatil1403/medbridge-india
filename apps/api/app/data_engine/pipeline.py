@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from app.core.firebase import get_db
 from .adapters.fixture_adapter import FixtureHospitalAdapter
+from .adapters.ogd_hospital_adapter import OgdHospitalAdapter
 from .acquisition import calculate_content_hash, store_raw_payload, create_raw_record
 from .normalization import create_normalization_record
 from .validation import validate_hospital_candidate, update_normalization_status
@@ -25,7 +26,9 @@ def run_pipeline(source_id: str):
         "status": "RUNNING",
         "startedAt": now,
         "recordsFound": 0,
+        "recordsParsed": 0,
         "recordsAccepted": 0,
+        "recordsExcluded": 0,
         "recordsRejected": 0,
         "recordsChanged": 0,
         "recordsUnchanged": 0,
@@ -63,6 +66,11 @@ def run_pipeline(source_id: str):
     # 2. Select Adapter
     if source_id == "src_fixture_001":
         adapter = FixtureHospitalAdapter()
+    elif source_id == "ogd_national_hospital_directory":
+        # Usually URL is kept in DB, but we fetch from a known endpoint or use the DB url if present.
+        # Hardcoding the OGD url for adapter initialization if DB url isn't found.
+        url = source_doc.to_dict().get("url") if source_doc.exists else "https://data.gov.in/files/ogdpv2dws/s3fs-public/hospital_directory.csv"
+        adapter = OgdHospitalAdapter(url)
     else:
         error_msg = f"No adapter for source {source_id}"
         update_job_status(job_id, {"status": "FAILED", "errorMessage": error_msg})
@@ -98,7 +106,7 @@ def run_pipeline(source_id: str):
         # 4. Parse
         parsed_items = adapter.parse(payload)
         records_found = len(parsed_items)
-        update_job_status(job_id, {"recordsFound": records_found})
+        update_job_status(job_id, {"recordsFound": records_found, "recordsParsed": records_found})
         
         # Anomaly Detection
         if last_job and last_job.get("recordsFound", 0) > 0:
@@ -118,12 +126,18 @@ def run_pipeline(source_id: str):
         
         accepted = 0
         rejected = 0
+        excluded = 0
         errors = 0
         
         for item in parsed_items:
             try:
                 # 5. Normalize
                 normalized_data = adapter.normalize(item, raw_record.retrievedAt, raw_record.rawRecordId)
+                if normalized_data and normalized_data.get("_exclude"):
+                    # Log the exclusion internally
+                    excluded += 1
+                    continue
+                    
                 norm_record = create_normalization_record(raw_record.rawRecordId, source_id, "HOSPITAL", normalized_data.get("externalIdentifier", ""), normalized_data)
                 
                 # 6. Validate
@@ -158,6 +172,7 @@ def run_pipeline(source_id: str):
             "completedAt": datetime.utcnow().isoformat(),
             "recordsAccepted": accepted,
             "recordsRejected": rejected,
+            "recordsExcluded": excluded,
             "recordsChanged": accepted, # simplified for now
             "errorCount": errors
         })
@@ -165,7 +180,7 @@ def run_pipeline(source_id: str):
         if source_doc.exists:
             _update_source_success(source_ref, datetime.utcnow().isoformat())
             
-        print(f"Pipeline completed with status {status}. Accepted: {accepted}, Rejected: {rejected}")
+        print(f"Pipeline completed with status {status}. Accepted: {accepted}, Rejected: {rejected}, Excluded: {excluded}")
         
     except Exception as e:
         error_msg = str(e)

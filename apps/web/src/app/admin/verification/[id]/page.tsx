@@ -93,7 +93,23 @@ export default function ReviewDetailPage({ params }: { params: { id: string } })
           <h2 className="font-semibold text-lg border-b pb-2 mb-4">Candidate (New)</h2>
           <div className="space-y-3 text-sm">
             <div><span className="font-medium text-gray-500">Name:</span> {review.candidateData.name}</div>
-            <div><span className="font-medium text-gray-500">City:</span> {review.candidateData.city}</div>
+            <div>
+              <span className="font-medium text-gray-500">City:</span>{' '}
+              {review.candidateData.city ? (
+                <span>{review.candidateData.city} <span className="text-xs text-gray-400">(via {review.candidateData.citySource || 'source'})</span></span>
+              ) : (
+                <span className="text-amber-600 italic">Not available from source</span>
+              )}
+            </div>
+            {(review.candidateData.state || review.candidateData.district || review.candidateData.town) && (
+              <div className="bg-gray-50 p-2 rounded border border-gray-100 mt-2 text-xs">
+                <div className="font-medium text-gray-500 mb-1">Source Geographic Data:</div>
+                {review.candidateData.state && <div>State: {review.candidateData.state}</div>}
+                {review.candidateData.district && <div>District: {review.candidateData.district}</div>}
+                {review.candidateData.town && <div>Town: {review.candidateData.town}</div>}
+                {review.candidateData.village && <div>Village: {review.candidateData.village}</div>}
+              </div>
+            )}
             <div><span className="font-medium text-gray-500">Country:</span> {review.candidateData.country}</div>
             <div><span className="font-medium text-gray-500">Specialties:</span> {review.candidateData.specialties?.join(', ')}</div>
             <div><span className="font-medium text-gray-500">Treatments:</span> {review.candidateData.treatments?.join(', ')}</div>

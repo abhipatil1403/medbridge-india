@@ -9,8 +9,12 @@ class AcquisitionJob(BaseModel):
     startedAt: Optional[str] = None
     completedAt: Optional[str] = None
     recordsFound: int = 0
+    recordsParsed: int = 0
     recordsAccepted: int = 0
+    recordsExcluded: int = 0
     recordsRejected: int = 0
+    recordsChanged: int = 0
+    recordsUnchanged: int = 0
     errorCount: int = 0
     errorMessage: Optional[str] = None
     createdAt: str

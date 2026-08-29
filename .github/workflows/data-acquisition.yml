@@ -35,7 +35,7 @@ jobs:
       - name: Execute Acquisition CLI
         working-directory: ./apps/api
         run: |
-          python -m app.data_engine.__main__ src_fixture_001
+          python -m app.data_engine.__main__ ogd_national_hospital_directory
           
       - name: Cleanup temporary credentials
         if: always()

@@ -223,15 +223,16 @@ export interface AcquisitionJob {
   status: JobStatus;
   startedAt: string;
   completedAt?: string;
-  contentHash?: string;
   recordsFound: number;
+  recordsParsed: number;
   recordsAccepted: number;
+  recordsExcluded: number;
   recordsRejected: number;
-  recordsChanged?: number;
-  recordsUnchanged?: number;
-  recordsDuplicated?: number;
+  recordsChanged: number;
+  recordsUnchanged: number;
   errorCount: number;
   errorMessage?: string;
+  createdAt: string;
 }
 
 export type VerificationStatus = 'UNVERIFIED' | 'REVIEWED' | 'CLAIMED_CONFIRMED' | 'CONFIRMED' | 'DISPUTED';
