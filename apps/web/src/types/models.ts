@@ -190,6 +190,8 @@ export interface Quote {
 
 export type SourceTier = 'TIER_1' | 'TIER_2' | 'TIER_3';
 export type SourceStatus = 'ACTIVE' | 'INACTIVE';
+export type SourceHealth = 'HEALTHY' | 'WARNING' | 'FAILING' | 'DISABLED' | 'UNKNOWN';
+export type JobStatus = 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED' | 'UNCHANGED';
 
 export interface Source {
   id?: string;
@@ -199,9 +201,37 @@ export interface Source {
   tier: SourceTier;
   publisher: string;
   status: SourceStatus;
-  lastCheckedAt: string;
+  
+  // Health & Freshness
+  health?: SourceHealth;
+  frequency?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
+  lastCheckedAt?: string;
+  lastSuccessfulAt?: string;
+  lastFailedAt?: string;
+  lastJobId?: string;
+  lastError?: string;
+  consecutiveFailures?: number;
+
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AcquisitionJob {
+  id?: string;
+  jobId: string;
+  sourceId: string;
+  status: JobStatus;
+  startedAt: string;
+  completedAt?: string;
+  contentHash?: string;
+  recordsFound: number;
+  recordsAccepted: number;
+  recordsRejected: number;
+  recordsChanged?: number;
+  recordsUnchanged?: number;
+  recordsDuplicated?: number;
+  errorCount: number;
+  errorMessage?: string;
 }
 
 export type VerificationStatus = 'UNVERIFIED' | 'REVIEWED' | 'CLAIMED_CONFIRMED' | 'CONFIRMED' | 'DISPUTED';
@@ -245,6 +275,26 @@ export interface Treatment {
 }
 
 export type CorrectionStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+
+export type MatchType = 'EXACT_MATCH' | 'PROBABLE_MATCH' | 'POSSIBLE_MATCH' | 'NO_MATCH';
+export type AcquisitionReviewStatus = 'PENDING' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED' | 'NEEDS_CHANGES';
+
+export interface AcquisitionReview {
+  id?: string;
+  sourceId: string;
+  rawRecordId: string;
+  normalizationRecordId: string;
+  entityType: 'HOSPITAL';
+  entityId?: string; // Present if EXACT_MATCH or linked by admin
+  matchType: MatchType;
+  status: AcquisitionReviewStatus;
+  candidateData: any;
+  reviewerId?: string;
+  reviewerNotes?: string;
+  retrievedAt: string;
+  createdAt: string;
+  reviewedAt?: string;
+}
 
 export interface CorrectionRequest {
   id?: string;

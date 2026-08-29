@@ -121,6 +121,31 @@ service cloud.firestore {
       allow update, delete: if false; // Audit logs are immutable
     }
 
+    match /acquisitionJobs/{jobId} {
+      allow read: if isAdmin();
+      allow write: if false; // Backend only writes
+    }
+
+    match /rawRecords/{recordId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if false; // Backend only writes
+    }
+
+    match /normalizationRecords/{recordId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if false; // Backend only writes
+    }
+
+    match /acquisitionReviews/{reviewId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if isAdmin() || isDataReviewer();
+    }
+
+    match /acquisitionJobs/{jobId} {
+      allow read: if isAdmin() || isDataReviewer();
+      allow write: if false; // Backend only writes
+    }
+
     // ── Cost Estimates ─────────────────────────────────────────────────
     match /costEstimates/{estimateId} {
       allow read: if isPublished() || isAdmin() || isSupportStaff() || isDataReviewer();

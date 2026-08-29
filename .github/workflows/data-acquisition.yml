@@ -1,0 +1,43 @@
+name: Data Acquisition Pipeline
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Run weekly on Sundays at midnight UTC
+  workflow_dispatch: # Allow manual execution
+
+permissions:
+  contents: read # Least privilege, only needs to read repo code
+
+jobs:
+  acquire-data:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          
+      - name: Install dependencies
+        working-directory: ./apps/api
+        run: |
+          pip install -e .
+          
+      - name: Create temporary Firebase Credentials
+        id: create-credentials
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}' > firebase-credentials.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-credentials.json" >> $GITHUB_ENV
+          
+      - name: Execute Acquisition CLI
+        working-directory: ./apps/api
+        run: |
+          python -m app.data_engine.__main__ src_fixture_001
+          
+      - name: Cleanup temporary credentials
+        if: always()
+        run: |
+          rm -f firebase-credentials.json

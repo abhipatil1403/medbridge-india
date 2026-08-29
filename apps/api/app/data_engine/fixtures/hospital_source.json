@@ -1,0 +1,29 @@
+[
+  {
+    "id": "FIXTURE_HOSP_001",
+    "hospital_name": "Apollo Hospitals, Chennai ",
+    "location_city": "Chennai",
+    "location_country": "India",
+    "specialties_offered": "Cardiology, Oncology, Neurology",
+    "procedures": "CABG, Chemotherapy, Brain Tumor Surgery",
+    "contact_website": "https://chennai.apollohospitals.com/"
+  },
+  {
+    "id": "FIXTURE_HOSP_002",
+    "hospital_name": "Fortis Escorts Heart Institute",
+    "location_city": "New Delhi",
+    "location_country": "India",
+    "specialties_offered": "Cardiology",
+    "procedures": "Heart Transplant, Valve Replacement",
+    "contact_website": ""
+  },
+  {
+    "id": "FIXTURE_HOSP_003",
+    "hospital_name": "  invalid hospital  ",
+    "location_city": "",
+    "location_country": "India",
+    "specialties_offered": "General",
+    "procedures": "",
+    "contact_website": null
+  }
+]

@@ -26,5 +26,10 @@ service firebase.storage {
       allow read: if true; // Public access for approved media
       allow write: if false;
     }
+
+    match /raw-data/{sourceId}/{jobId}/{fileName} {
+      allow read: if hasRole('ADMIN') || hasRole('SUPER_ADMIN') || hasRole('DATA_REVIEWER');
+      allow write: if false; // Backend only writes
+    }
   }
 }
