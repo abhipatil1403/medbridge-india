@@ -15,14 +15,20 @@ export default function VerificationPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [matchFilter, setMatchFilter] = useState('ALL');
 
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
     async function load() {
       if (!currentUser) return;
       try {
+        setError(null);
+        // Force refresh ID token so Custom Claims (SUPER_ADMIN, DATA_REVIEWER) are active
+        await currentUser.getIdToken(true);
         const data = await adminAcquisitionService.getPendingReviews();
         setReviews(data);
-      } catch (err) {
-        console.error(err);
+      } catch (err: any) {
+        console.error("Failed to load verification queue:", err);
+        setError(err.message || "Failed to load verification queue");
       } finally {
         setLoading(false);
       }
@@ -79,6 +85,12 @@ export default function VerificationPage() {
           <option value="NO_MATCH">No Match</option>
         </select>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-6">
+          {error}
+        </div>
+      )}
 
       {filteredReviews.length === 0 ? (
         <div className="bg-gray-50 border rounded p-8 text-center text-gray-500">
