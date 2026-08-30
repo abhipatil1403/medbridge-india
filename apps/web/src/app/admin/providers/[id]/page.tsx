@@ -70,6 +70,8 @@ export default function ProviderDetailPage() {
     setSaving(true);
     setError('');
     try {
+      // Save current input values before publishing
+      await adminProviderService.updateHospital(hospitalId, hospital, userProfile.uid, userProfile.primaryRole);
       await adminProviderService.publishHospital(hospitalId, userProfile.uid, userProfile.primaryRole);
       setHospital(prev => ({ ...prev, status: 'PUBLISHED' }));
       alert('Published successfully');

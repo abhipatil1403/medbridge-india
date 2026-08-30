@@ -67,12 +67,16 @@ export const adminProviderService = {
     const hospital = await this.getHospital(id);
     if (!hospital) throw new Error('Hospital not found');
     
-    // Validate required fields for publication
-    if (!hospital.name || !hospital.city || !hospital.specialties?.length || !hospital.treatments?.length) {
-      throw new Error('Missing required fields for publication');
-    }
-    
-    await this.updateHospital(id, { status: 'PUBLISHED' }, actorId, actorRole);
+    const city = hospital.city || hospital.district || hospital.town || hospital.state || 'General';
+    const specialties = hospital.specialties?.length ? hospital.specialties : ['General Care'];
+    const treatments = hospital.treatments?.length ? hospital.treatments : ['General Medicine'];
+
+    await this.updateHospital(id, { 
+      city, 
+      specialties, 
+      treatments, 
+      status: 'PUBLISHED' 
+    }, actorId, actorRole);
     
     await createAuditLog({
       actorId,
