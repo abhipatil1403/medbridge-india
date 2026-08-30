@@ -18,57 +18,66 @@ export interface SearchFilters {
 export async function searchProviders(filters: SearchFilters): Promise<Hospital[]> {
   const providersRef = collection(db, 'hospitals');
   
-  // We ONLY query PUBLISHED records
+  // We ONLY query PUBLISHED records from Firestore
   const conditions: QueryConstraint[] = [
-    where('status', '==', 'PUBLISHED')
+    where('status', '==', 'PUBLISHED'),
+    limit(200)
   ];
-
-  // Apply deterministic strict matches to limit the fetch size
-  if (filters.state) conditions.push(where('state', '==', filters.state));
-  if (filters.district) conditions.push(where('district', '==', filters.district));
-  if (filters.careType) conditions.push(where('careType', '==', filters.careType));
-  if (filters.category) conditions.push(where('category', '==', filters.category));
-  
-  // We can only use one array-contains per Firestore query,
-  // so we will prioritize the most likely to reduce results if provided.
-  if (filters.specialty) {
-    conditions.push(where('specialties', 'array-contains', filters.specialty));
-  } else if (filters.facilities) {
-    conditions.push(where('facilities', 'array-contains', filters.facilities));
-  }
-
-  // To prevent loading thousands of providers, we limit to 100 before applying
-  // client-side in-memory filtering for text matching or additional arrays.
-  conditions.push(limit(100));
 
   const q = query(providersRef, ...conditions);
   const snapshot = await getDocs(q);
   
   let results: Hospital[] = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hospital));
   
-  // Client-side in-memory filtering for remaining fields that Firestore can't natively combine easily
-  if (filters.name) {
-    const qName = filters.name.toLowerCase();
-    results = results.filter(h => h.name.toLowerCase().includes(qName));
+  // Robust case-insensitive in-memory filtering
+  if (filters.name?.trim()) {
+    const qName = filters.name.trim().toLowerCase();
+    results = results.filter(h => h.name?.toLowerCase().includes(qName));
   }
   
-  if (filters.city) {
-    const qCity = filters.city.toLowerCase();
+  if (filters.state?.trim()) {
+    const qState = filters.state.trim().toLowerCase();
+    results = results.filter(h => h.state?.toLowerCase().includes(qState));
+  }
+  
+  if (filters.district?.trim()) {
+    const qDistrict = filters.district.trim().toLowerCase();
+    results = results.filter(h => h.district?.toLowerCase().includes(qDistrict));
+  }
+
+  if (filters.city?.trim()) {
+    const qCity = filters.city.trim().toLowerCase();
     results = results.filter(h => h.city?.toLowerCase().includes(qCity));
   }
   
-  if (filters.town) {
-    const qTown = filters.town.toLowerCase();
+  if (filters.town?.trim()) {
+    const qTown = filters.town.trim().toLowerCase();
     results = results.filter(h => h.town?.toLowerCase().includes(qTown));
   }
 
-  if (filters.specialty && filters.facilities) {
-    // If specialty was the array-contains query, we must manually filter facilities
-    results = results.filter(h => h.facilities?.includes(filters.facilities!));
+  if (filters.careType?.trim()) {
+    const qCare = filters.careType.trim().toLowerCase();
+    results = results.filter(h => h.careType?.toLowerCase().includes(qCare));
   }
 
-  if (filters.systemsOfMedicine) {
-    results = results.filter(h => h.systemsOfMedicine?.includes(filters.systemsOfMedicine!));
+  if (filters.category?.trim()) {
+    const qCat = filters.category.trim().toLowerCase();
+    results = results.filter(h => h.category?.toLowerCase().includes(qCat));
+  }
+
+  if (filters.specialty?.trim()) {
+    const qSpec = filters.specialty.trim().toLowerCase();
+    results = results.filter(h => h.specialties?.some(s => s.toLowerCase().includes(qSpec)));
+  }
+
+  if (filters.facilities?.trim()) {
+    const qFac = filters.facilities.trim().toLowerCase();
+    results = results.filter(h => (Array.isArray(h.facilities) ? h.facilities : [h.facilities || '']).some(f => String(f).toLowerCase().includes(qFac)));
+  }
+
+  if (filters.systemsOfMedicine?.trim()) {
+    const qSys = filters.systemsOfMedicine.trim().toLowerCase();
+    results = results.filter(h => (Array.isArray(h.systemsOfMedicine) ? h.systemsOfMedicine : [h.systemsOfMedicine || '']).some(s => String(s).toLowerCase().includes(qSys)));
   }
   
   return results;

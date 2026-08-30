@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { searchProviders, SearchFilters } from '../../../features/search/searchService';
 import { Hospital } from '../../../types/models';
 import Link from 'next/link';
@@ -12,6 +12,10 @@ export default function SearchPage() {
   const [hasSearched, setHasSearched] = useState(false);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+
+  useEffect(() => {
+    handleSearch();
+  }, []);
 
   const toggleCompare = (id: string, isSelected: boolean) => {
     setSelectedForCompare(prev => {
