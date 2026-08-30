@@ -11,31 +11,44 @@ let _auth: Auth | null = null;
 let _db: Firestore | null = null;
 let _storage: FirebaseStorage | null = null;
 
-function getFirebaseApp(): FirebaseApp {
+export function getFirebaseApp(): FirebaseApp {
   if (!_app) {
     _app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   }
   return _app;
 }
 
-export const auth: Auth = new Proxy({} as Auth, {
+export function getFirebaseAuth(): Auth {
+  if (!_auth) _auth = getAuth(getFirebaseApp());
+  return _auth;
+}
+
+export function getFirebaseDb(): Firestore {
+  if (!_db) _db = getFirestore(getFirebaseApp());
+  return _db;
+}
+
+export function getFirebaseStorage(): FirebaseStorage {
+  if (!_storage) _storage = getStorage(getFirebaseApp());
+  return _storage;
+}
+
+// In browser runtime, initialize directly so Firestore SDK instanceof checks succeed
+export const auth: Auth = typeof window !== 'undefined' ? getFirebaseAuth() : new Proxy({} as Auth, {
   get(_, prop) {
-    if (!_auth) _auth = getAuth(getFirebaseApp());
-    return (_auth as any)[prop];
+    return (getFirebaseAuth() as any)[prop];
   },
 });
 
-export const db: Firestore = new Proxy({} as Firestore, {
+export const db: Firestore = typeof window !== 'undefined' ? getFirebaseDb() : new Proxy({} as Firestore, {
   get(_, prop) {
-    if (!_db) _db = getFirestore(getFirebaseApp());
-    return (_db as any)[prop];
+    return (getFirebaseDb() as any)[prop];
   },
 });
 
-export const storage: FirebaseStorage = new Proxy({} as FirebaseStorage, {
+export const storage: FirebaseStorage = typeof window !== 'undefined' ? getFirebaseStorage() : new Proxy({} as FirebaseStorage, {
   get(_, prop) {
-    if (!_storage) _storage = getStorage(getFirebaseApp());
-    return (_storage as any)[prop];
+    return (getFirebaseStorage() as any)[prop];
   },
 });
 
