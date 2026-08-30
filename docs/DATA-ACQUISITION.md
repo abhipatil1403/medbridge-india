@@ -45,7 +45,9 @@ Defines the metadata for an external source. Includes `type` (OFFICIAL_API, HOSP
 Tracks the execution of a data pull. Fields: `jobId`, `sourceId`, `status`, `startedAt`, `completedAt`, `recordsFound`, `recordsAccepted`. Should reside in Firestore.
 
 ### Raw Data (`rawRecords` - Proposed)
-Appended-only snapshot of acquired data. Large HTML/JSON payloads are stored in **Firebase Storage**, while metadata (`contentHash`, `retrievedAt`, `sourceId`) resides in Firestore. This enables change detection via hashes without bloating Firestore.
+Appended-only snapshot of acquired data. Large HTML/JSON payloads are ideally stored in **Firebase Storage**, while metadata (`contentHash`, `retrievedAt`, `sourceId`) resides in Firestore. This enables change detection via hashes without bloating Firestore.
+
+*[STAGING / DEVELOPMENT ONLY: Firebase Storage is deferred because the current Firebase staging project requires the Blaze plan for Storage provisioning. The current staging architecture uses local artifact storage (`apps/api/.data/raw_artifacts`) instead.]*
 
 ### Normalization & Validation
 Normalizes raw payloads into `Candidate` records (e.g., `HospitalCandidate`). Deterministic validation checks required fields (e.g., `minAmount <= maxAmount` for cost estimates). LLMs may assist in unstructured extraction but output remains unverified until human review.

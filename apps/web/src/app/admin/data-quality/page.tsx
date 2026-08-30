@@ -6,6 +6,7 @@ import { AcquisitionJob, FieldConflict } from '../../../types/models';
 import { collection, getDocs, query } from 'firebase/firestore';
 import { db } from '../../../lib/firebase/client';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
+import { downloadCsv } from '../../../lib/csvExport';
 
 function DataQualityDashboard() {
   const [jobs, setJobs] = useState<AcquisitionJob[]>([]);
@@ -42,9 +43,29 @@ function DataQualityDashboard() {
   const pendingConflicts = conflicts.filter(c => c.status === 'PENDING').length;
   const resolvedConflicts = conflicts.filter(c => c.status !== 'PENDING').length;
 
+  const handleExport = () => {
+    const data = [
+      { Metric: 'Total Acquired', Value: totalFound },
+      { Metric: 'Accepted (Pending Review)', Value: totalAccepted },
+      { Metric: 'Excluded (Care Type)', Value: totalExcluded },
+      { Metric: 'Rejected (Invalid)', Value: totalRejected },
+      { Metric: 'Pending Conflicts', Value: pendingConflicts },
+      { Metric: 'Resolved Conflicts', Value: resolvedConflicts },
+    ];
+    downloadCsv(`data_quality_${new Date().toISOString().split('T')[0]}.csv`, data);
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Data Quality Dashboard</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold">Data Quality Dashboard</h1>
+        <button
+          onClick={handleExport}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm font-medium"
+        >
+          Export CSV
+        </button>
+      </div>
       
       <h2 className="text-xl font-semibold mb-4">Pipeline Metrics</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

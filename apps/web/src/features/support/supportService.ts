@@ -231,6 +231,7 @@ export async function createQuoteDraft(
     caseId,
     patientId,
     hospitalId: data.hospitalId,
+      providerId: data.hospitalId,
     treatmentId: data.treatmentId,
     currency: data.currency,
     estimatedAmount: data.estimatedAmount,

@@ -15,6 +15,9 @@ const AuthContext = createContext<AuthContextType>({
   signOut: async () => {},
 });
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase/client';
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<any | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -24,18 +27,41 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const unsubscribe = observeAuthState(async (user: any) => {
       setCurrentUser(user);
       if (user) {
+        let roles: Role[] = ['CUSTOMER'];
+        let primaryRole: Role = 'CUSTOMER';
+        let panel = 'Customer Panel';
+        let status = 'ACTIVE';
+
+        try {
+          const docRef = doc(db, 'users', user.uid);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            if (Array.isArray(data.roles)) {
+              roles = data.roles;
+            } else if (data.roles && typeof data.roles === 'object') {
+              roles = Object.keys(data.roles).filter((k) => data.roles[k]) as Role[];
+            }
+            if (data.primaryRole) primaryRole = data.primaryRole;
+            if (data.panel) panel = data.panel;
+            if (data.status) status = data.status;
+          }
+        } catch (err) {
+          console.error("Failed to load user profile:", err);
+        }
+
         setUserProfile({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.displayName,
-            photoURL: user.photoURL,
-            roles: ['CUSTOMER'],
-            primaryRole: 'CUSTOMER',
-            panel: 'Customer Panel',
-            status: 'ACTIVE',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            lastLoginAt: new Date().toISOString(),
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName,
+          photoURL: user.photoURL,
+          roles,
+          primaryRole,
+          panel,
+          status,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
         });
       } else {
         setUserProfile(null);

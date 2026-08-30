@@ -23,16 +23,19 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
     })
     
     # 2. Check for existing PENDING review for this source and candidate to prevent duplicates
-    existing_reviews = db.collection("acquisitionReviews") \
-        .where("sourceId", "==", candidate.sourceId) \
-        .where("status", "==", "PENDING") \
-        .stream()
-        
-    for review_doc in existing_reviews:
-        review_data = review_doc.to_dict()
-        if review_data.get("candidateData", {}).get("externalIdentifier") == candidate.externalIdentifier:
-            # We already have a pending review for this candidate from this source
-            return
+    if not hasattr(create_provenance_records, "_pending_cache"):
+        create_provenance_records._pending_cache = set()
+        existing_reviews = db.collection("acquisitionReviews") \
+            .where("sourceId", "==", candidate.sourceId) \
+            .where("status", "==", "PENDING") \
+            .stream()
+        for review_doc in existing_reviews:
+            ext_id = review_doc.to_dict().get("candidateData", {}).get("externalIdentifier")
+            if ext_id:
+                create_provenance_records._pending_cache.add(ext_id)
+                
+    if candidate.externalIdentifier in create_provenance_records._pending_cache:
+        return
             
     # 3. Pipeline generates an AcquisitionReview for all records, so human reviewer can approve
     # exact matches (fields might differ) or link NO_MATCH / PROBABLE_MATCH.
@@ -53,3 +56,4 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
         "retrievedAt": candidate.retrievedAt,
         "createdAt": now
     })
+    create_provenance_records._pending_cache.add(candidate.externalIdentifier)

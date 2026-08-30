@@ -117,6 +117,7 @@ export interface Doctor extends ProviderBase {
 export interface CostEstimate {
   id?: string;
   hospitalId: string;
+  providerId: string;
   treatmentId: string;
   treatmentName: string;
   currency: string;
@@ -198,6 +199,7 @@ export interface Quote {
   caseId: string;
   patientId: string;
   hospitalId: string;
+  providerId: string;
   treatmentId: string;
   currency: string;
   estimatedAmount: number;

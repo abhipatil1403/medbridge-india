@@ -18,7 +18,11 @@ class OgdHospitalAdapter(BaseSourceAdapter):
 
     def fetch(self) -> str:
         logger.info(f"Fetching OGD data from {self._source_url}")
-        with httpx.Client(timeout=30.0) as client:
+        import os
+        if os.path.exists(self._source_url):
+            with open(self._source_url, "r", encoding="utf-8-sig", errors="replace") as f:
+                return f.read()
+        with httpx.Client(timeout=60.0, follow_redirects=True) as client:
             response = client.get(self._source_url)
             response.raise_for_status()
             # OGD datasets are usually utf-8 or utf-8-sig

@@ -18,6 +18,14 @@ const ADMIN_NAVIGATION = [
   { name: 'Compliance', href: '/admin/compliance', roles: ['ADMIN', 'SUPER_ADMIN', 'COMPLIANCE_REVIEWER'] },
   { name: 'Cost Estimates', href: '/admin/cost-estimates' },
   { name: 'Audit Logs', href: '/admin/audit', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  // Operational Analytics (Phase 10)
+  { name: 'Operations', href: '/admin/operations', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { name: 'SLA Analytics', href: '/admin/sla', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { name: 'Support Workload', href: '/admin/support-performance', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { name: 'Quote Analytics', href: '/admin/quote-analytics', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { name: 'Provider Analytics', href: '/admin/provider-analytics', roles: ['ADMIN', 'SUPER_ADMIN'] },
+  { name: 'Acquisition Health', href: '/admin/acquisition-health', roles: ['ADMIN', 'SUPER_ADMIN', 'DATA_REVIEWER'] },
+  { name: 'Data Quality', href: '/admin/data-quality', roles: ['ADMIN', 'SUPER_ADMIN', 'DATA_REVIEWER'] },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

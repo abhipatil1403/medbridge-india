@@ -42,7 +42,8 @@ function AIAssistantPage() {
     
     try {
       const token = await currentUser.getIdToken();
-      const res = await fetch('http://localhost:8000/api/v1/ai/chat', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://medbridge-india-api-staging.onrender.com';
+      const res = await fetch(`${apiUrl}/api/v1/ai/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

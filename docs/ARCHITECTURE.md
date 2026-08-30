@@ -5,8 +5,7 @@
 - **Backend**: FastAPI (Python)
 - **Database**: Cloud Firestore
 - **Auth**: Firebase Authentication with custom claims for RBAC
-- **Storage**: Firebase Storage (foundation)
-
+- **Storage**: Firebase Storage (foundation) - *[STAGING / DEVELOPMENT ONLY: Firebase Storage is deferred because the current Firebase staging project requires the Blaze plan for Storage provisioning. The current staging architecture does not use Firebase Storage.]*
 ## Data Flow
 
 ```

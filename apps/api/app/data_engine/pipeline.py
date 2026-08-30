@@ -68,8 +68,12 @@ def run_pipeline(source_id: str):
         adapter = FixtureHospitalAdapter()
     elif source_id == "ogd_national_hospital_directory":
         # Usually URL is kept in DB, but we fetch from a known endpoint or use the DB url if present.
-        # Hardcoding the OGD url for adapter initialization if DB url isn't found.
-        url = source_doc.to_dict().get("url") if source_doc.exists else "https://data.gov.in/files/ogdpv2dws/s3fs-public/hospital_directory.csv"
+        import os
+        local_csv = os.environ.get("OGD_LOCAL_CSV_PATH", r"C:\Users\Lenovo\Downloads\hospital_directory.csv")
+        if os.path.exists(local_csv):
+            url = local_csv
+        else:
+            url = source_doc.to_dict().get("url") if source_doc.exists else "https://data.gov.in/files/ogdpv2dws/s3fs-public/hospital_directory.csv"
         adapter = OgdHospitalAdapter(url)
     else:
         error_msg = f"No adapter for source {source_id}"
@@ -109,7 +113,7 @@ def run_pipeline(source_id: str):
         update_job_status(job_id, {"recordsFound": records_found, "recordsParsed": records_found})
         
         # Anomaly Detection
-        if last_job and last_job.get("recordsFound", 0) > 0:
+        if last_job and last_job.get("recordsFound", 0) > 100:
             last_count = last_job["recordsFound"]
             ratio = records_found / last_count
             diff = abs(records_found - last_count)
