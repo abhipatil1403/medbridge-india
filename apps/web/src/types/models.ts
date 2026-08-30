@@ -94,6 +94,8 @@ export interface ProviderBase {
   source: string;
   verificationStatus: string;
   lastCheckedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
   _provenance?: Record<string, any>;
 }
 
