@@ -10,9 +10,13 @@ export const adminProviderService = {
   // ── Hospitals ────────────────────────────────────────────────────────
   
   async getHospitals(): Promise<Hospital[]> {
-    const q = query(collection(db, HOSPITALS_COLLECTION), orderBy('createdAt', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hospital));
+    const snapshot = await getDocs(collection(db, HOSPITALS_COLLECTION));
+    const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Hospital));
+    return list.sort((a, b) => {
+      const timeA = new Date(a.createdAt || a.updatedAt || a.lastCheckedAt || 0).getTime();
+      const timeB = new Date(b.createdAt || b.updatedAt || b.lastCheckedAt || 0).getTime();
+      return timeB - timeA;
+    });
   },
 
   async getHospital(id: string): Promise<Hospital | null> {

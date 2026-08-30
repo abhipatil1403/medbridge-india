@@ -137,6 +137,8 @@ export const adminAcquisitionService = {
       source: 'DATA_PIPELINE',
       verificationStatus: 'REVIEWED',
       lastCheckedAt: now,
+      createdAt: now,
+      updatedAt: now,
       ...candidateData
     };
 
