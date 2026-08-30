@@ -1,14 +1,16 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { adminProviderService } from '../../../../features/admin/adminProviderService';
 import { Hospital } from '../../../../types/models';
 import { useAuth } from '../../../../components/AuthProvider';
 
-export default function ProviderDetailPage({ params }: { params: { id: string } }) {
-  const isNew = params.id === 'new';
+export default function ProviderDetailPage() {
   const router = useRouter();
+  const routeParams = useParams();
+  const hospitalId = routeParams?.id as string;
+  const isNew = hospitalId === 'new';
   const { userProfile, roles } = useAuth();
   const isAdmin = roles.includes('ADMIN') || roles.includes('SUPER_ADMIN');
   const isReviewer = roles.includes('DATA_REVIEWER');
@@ -28,10 +30,10 @@ export default function ProviderDetailPage({ params }: { params: { id: string } 
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!isNew) {
+    if (!isNew && hospitalId) {
       async function load() {
         try {
-          const data = await adminProviderService.getHospital(params.id);
+          const data = await adminProviderService.getHospital(hospitalId);
           if (data) setHospital(data);
           else setError('Hospital not found');
         } catch (err) {
@@ -42,7 +44,7 @@ export default function ProviderDetailPage({ params }: { params: { id: string } 
       }
       load();
     }
-  }, [isNew, params.id]);
+  }, [isNew, hospitalId]);
 
   const handleSave = async () => {
     if (!userProfile?.uid) return;
@@ -53,7 +55,7 @@ export default function ProviderDetailPage({ params }: { params: { id: string } 
         const newId = await adminProviderService.createHospital(hospital as Omit<Hospital, 'id'>, userProfile.uid, userProfile.primaryRole);
         router.push(`/admin/providers/${newId}`);
       } else {
-        await adminProviderService.updateHospital(params.id, hospital, userProfile.uid, userProfile.primaryRole);
+        await adminProviderService.updateHospital(hospitalId, hospital, userProfile.uid, userProfile.primaryRole);
         alert('Saved successfully');
       }
     } catch (err: any) {
@@ -68,7 +70,7 @@ export default function ProviderDetailPage({ params }: { params: { id: string } 
     setSaving(true);
     setError('');
     try {
-      await adminProviderService.publishHospital(params.id, userProfile.uid, userProfile.primaryRole);
+      await adminProviderService.publishHospital(hospitalId, userProfile.uid, userProfile.primaryRole);
       setHospital(prev => ({ ...prev, status: 'PUBLISHED' }));
       alert('Published successfully');
     } catch (err: any) {
@@ -83,7 +85,7 @@ export default function ProviderDetailPage({ params }: { params: { id: string } 
     setSaving(true);
     setError('');
     try {
-      await adminProviderService.unpublishHospital(params.id, userProfile.uid, userProfile.primaryRole);
+      await adminProviderService.unpublishHospital(hospitalId, userProfile.uid, userProfile.primaryRole);
       setHospital(prev => ({ ...prev, status: 'DRAFT' }));
       alert('Unpublished successfully');
     } catch (err: any) {
