@@ -97,7 +97,7 @@ export default function VerificationPage() {
           No items match your filters.
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow border overflow-hidden">
+        <div className="bg-white rounded-lg shadow border overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
