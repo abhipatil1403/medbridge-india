@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../components/AuthProvider';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
@@ -128,8 +128,10 @@ function QuoteRequestForm() {
 
 export default function QuoteRequestPage() {
   return (
-    <ProtectedRoute allowedRoles={['CUSTOMER']}>
-      <QuoteRequestForm />
-    </ProtectedRoute>
+    <Suspense fallback={<div className="p-12 text-center">Loading...</div>}>
+      <ProtectedRoute allowedRoles={['CUSTOMER']}>
+        <QuoteRequestForm />
+      </ProtectedRoute>
+    </Suspense>
   );
 }

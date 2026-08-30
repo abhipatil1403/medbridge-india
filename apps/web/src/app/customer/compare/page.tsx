@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getHospitalById } from '../../../features/providers/providerService';
 import { Hospital } from '../../../types/models';
 
-export default function CompareProvidersPage() {
+function CompareContent() {
   const searchParams = useSearchParams();
   const ids = searchParams.get('ids')?.split(',') || [];
   
@@ -149,5 +149,12 @@ export default function CompareProvidersPage() {
         </table>
       </div>
     </div>
+  );
+}
+export default function CompareProvidersPage() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center">Loading...</div>}>
+      <CompareContent />
+    </Suspense>
   );
 }

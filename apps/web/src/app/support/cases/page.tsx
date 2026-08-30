@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { ProtectedRoute } from '../../../components/ProtectedRoute';
 import { useAuth } from '../../../components/AuthProvider';
 import {
@@ -43,7 +43,7 @@ const PRIORITY_FILTERS: { value: CasePriority | 'ALL'; label: string }[] = [
   { value: 'LOW', label: 'Low' },
 ];
 
-export default function SupportCaseQueue() {
+function SupportCaseQueueContent() {
   const { currentUser, primaryRole } = useAuth();
   const searchParams = useSearchParams();
   const initialFilter = (searchParams.get('filter') as FilterMode) || 'ALL';
@@ -226,5 +226,12 @@ export default function SupportCaseQueue() {
         )}
       </div>
     </ProtectedRoute>
+  );
+}
+export default function SupportCaseQueue() {
+  return (
+    <Suspense fallback={<div className="p-12 text-center">Loading queue...</div>}>
+      <SupportCaseQueueContent />
+    </Suspense>
   );
 }
