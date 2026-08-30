@@ -242,17 +242,21 @@ export default function SearchPage() {
                       </span>
                     </div>
 
-                    {hospital.specialties && hospital.specialties.length > 0 && (
+                    {hospital.specialties && (
                       <div className="mt-3 text-sm text-gray-600">
-                        <span className="font-medium text-gray-700">Specialties:</span> {hospital.specialties.slice(0, 3).join(', ')}
-                        {hospital.specialties.length > 3 && ` +${hospital.specialties.length - 3} more`}
+                        <span className="font-medium text-gray-700">Specialties:</span>{' '}
+                        {Array.isArray(hospital.specialties)
+                          ? hospital.specialties.slice(0, 3).join(', ') + (hospital.specialties.length > 3 ? ` +${hospital.specialties.length - 3} more` : '')
+                          : String(hospital.specialties)}
                       </div>
                     )}
 
-                    {hospital.facilities && hospital.facilities.length > 0 && (
+                    {hospital.facilities && (
                       <div className="mt-1 text-sm text-gray-600">
-                        <span className="font-medium text-gray-700">Facilities:</span> {hospital.facilities.slice(0, 3).join(', ')}
-                        {hospital.facilities.length > 3 && ` +${hospital.facilities.length - 3} more`}
+                        <span className="font-medium text-gray-700">Facilities:</span>{' '}
+                        {Array.isArray(hospital.facilities)
+                          ? hospital.facilities.slice(0, 3).join(', ') + (hospital.facilities.length > 3 ? ` +${hospital.facilities.length - 3} more` : '')
+                          : String(hospital.facilities)}
                       </div>
                     )}
                   </div>

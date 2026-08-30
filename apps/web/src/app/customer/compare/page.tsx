@@ -112,7 +112,7 @@ function CompareContent() {
               <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Facilities</td>
               {providers.map(p => (
                 <td key={`fac-${p.id}`} className="p-4 border-b align-top">
-                  {p.facilities && p.facilities.length > 0 ? p.facilities.join(', ') : '-'}
+                  {p.facilities ? (Array.isArray(p.facilities) ? p.facilities.join(', ') : String(p.facilities)) : '-'}
                 </td>
               ))}
             </tr>
@@ -132,7 +132,7 @@ function CompareContent() {
               <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Systems of Medicine</td>
               {providers.map(p => (
                 <td key={`med-${p.id}`} className="p-4 border-b align-top">
-                  {p.systemsOfMedicine && p.systemsOfMedicine.length > 0 ? p.systemsOfMedicine.join(', ') : '-'}
+                  {p.systemsOfMedicine ? (Array.isArray(p.systemsOfMedicine) ? p.systemsOfMedicine.join(', ') : String(p.systemsOfMedicine)) : '-'}
                 </td>
               ))}
             </tr>

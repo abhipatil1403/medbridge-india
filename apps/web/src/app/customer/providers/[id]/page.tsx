@@ -127,16 +127,20 @@ export default function ProviderProfile() {
                     <p className="text-gray-900">{hospital.emergencyServices}</p>
                   </div>
                 )}
-                {hospital.facilities && hospital.facilities.length > 0 && (
+                {hospital.facilities && (
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-1">Facilities</h3>
-                    <p className="text-gray-900 leading-relaxed">{hospital.facilities.join(', ')}</p>
+                    <p className="text-gray-900 leading-relaxed">
+                      {Array.isArray(hospital.facilities) ? hospital.facilities.join(', ') : String(hospital.facilities)}
+                    </p>
                   </div>
                 )}
-                {hospital.systemsOfMedicine && hospital.systemsOfMedicine.length > 0 && (
+                {hospital.systemsOfMedicine && (
                   <div>
                     <h3 className="font-semibold text-gray-700 mb-1">Systems of Medicine</h3>
-                    <p className="text-gray-900">{hospital.systemsOfMedicine.join(', ')}</p>
+                    <p className="text-gray-900">
+                      {Array.isArray(hospital.systemsOfMedicine) ? hospital.systemsOfMedicine.join(', ') : String(hospital.systemsOfMedicine)}
+                    </p>
                   </div>
                 )}
               </div>
