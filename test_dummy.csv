@@ -1,0 +1,2 @@
+hospital_name,provider_type,city,state,country,coordinates,nearest_airport,website,contact_email,contact_phone,accreditations,rating_score,rating_count,rating_source,treatment_id,treatment_name,cost_min_usd,cost_max_usd,cost_source,cost_verified_at
+Test Hospital,HOSPITAL,Mumbai,Maharashtra,India,19.0760,BOM,https://testhospital.com,contact@testhospital.com,+912233445566,JCI,4.5,120,Google Maps,knee-replacement,Total Knee Replacement,3000,5000,https://testhospital.com/pricing,2026-09-01

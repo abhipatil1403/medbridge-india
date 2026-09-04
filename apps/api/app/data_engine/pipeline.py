@@ -14,7 +14,7 @@ def update_job_status(job_id: str, updates: dict):
     updates["updatedAt"] = datetime.utcnow().isoformat()
     db.collection("acquisitionJobs").document(job_id).update(updates)
 
-def run_pipeline(source_id: str):
+def run_pipeline(source_id: str, adapter=None):
     db = get_db()
     job_id = f"job_{uuid.uuid4().hex}"
     now = datetime.utcnow().isoformat()
@@ -64,23 +64,24 @@ def run_pipeline(source_id: str):
         last_job = doc.to_dict()
     
     # 2. Select Adapter
-    if source_id == "src_fixture_001":
-        adapter = FixtureHospitalAdapter()
-    elif source_id == "ogd_national_hospital_directory":
-        # Usually URL is kept in DB, but we fetch from a known endpoint or use the DB url if present.
-        import os
-        local_csv = os.environ.get("OGD_LOCAL_CSV_PATH", r"C:\Users\Lenovo\Downloads\hospital_directory.csv")
-        if os.path.exists(local_csv):
-            url = local_csv
+    if adapter is None:
+        if source_id == "src_fixture_001":
+            adapter = FixtureHospitalAdapter()
+        elif source_id == "ogd_national_hospital_directory":
+            # Usually URL is kept in DB, but we fetch from a known endpoint or use the DB url if present.
+            import os
+            local_csv = os.environ.get("OGD_LOCAL_CSV_PATH", r"C:\Users\Lenovo\Downloads\hospital_directory.csv")
+            if os.path.exists(local_csv):
+                url = local_csv
+            else:
+                url = source_doc.to_dict().get("url") if source_doc.exists else "https://data.gov.in/files/ogdpv2dws/s3fs-public/hospital_directory.csv"
+            adapter = OgdHospitalAdapter(url)
         else:
-            url = source_doc.to_dict().get("url") if source_doc.exists else "https://data.gov.in/files/ogdpv2dws/s3fs-public/hospital_directory.csv"
-        adapter = OgdHospitalAdapter(url)
-    else:
-        error_msg = f"No adapter for source {source_id}"
-        update_job_status(job_id, {"status": "FAILED", "errorMessage": error_msg})
-        if source_doc.exists:
-            _update_source_failure(source_ref, source_doc.to_dict(), now, error_msg)
-        return
+            error_msg = f"No adapter for source {source_id}"
+            update_job_status(job_id, {"status": "FAILED", "errorMessage": error_msg})
+            if source_doc.exists:
+                _update_source_failure(source_ref, source_doc.to_dict(), now, error_msg)
+            return
         
     try:
         # 3. Fetch
