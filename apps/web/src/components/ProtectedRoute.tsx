@@ -9,12 +9,22 @@ export const ProtectedRoute = ({ children, allowedRoles }: { children: React.Rea
   const router = useRouter();
 
   useEffect(() => {
+    console.log('[AUTH DEBUG] ProtectedRoute useEffect triggered', {
+      pathname: window.location.pathname,
+      authLoading: loading,
+      isAuthenticated,
+      roles,
+      allowedRoles,
+    });
     if (!loading) {
       if (!isAuthenticated) {
+        console.log('[AUTH DEBUG] Not authenticated, redirecting to /login');
         router.push('/login');
       } else {
         const hasAccess = roles.some((role: any) => allowedRoles.includes(role));
+        console.log('[AUTH DEBUG] hasAccess check', { hasAccess, roles, allowedRoles });
         if (!hasAccess) {
+          console.log('[AUTH DEBUG] Unauthorized, redirecting to /unauthorized');
           router.push('/unauthorized');
         }
       }

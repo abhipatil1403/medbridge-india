@@ -39,12 +39,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (snap.exists()) {
             const data = snap.data();
             if (Array.isArray(data.roles) && data.roles.length > 0) {
-              roles = data.roles;
+              roles = data.roles.map((r: any) => String(r).toUpperCase()) as Role[];
             } else if (data.roles && typeof data.roles === 'object') {
-              const objRoles = Object.keys(data.roles).filter((k) => data.roles[k]) as Role[];
+              const objRoles = Object.keys(data.roles).filter((k) => data.roles[k]).map(k => String(k).toUpperCase()) as Role[];
               if (objRoles.length > 0) roles = objRoles;
             }
-            if (data.primaryRole) primaryRole = data.primaryRole;
+            if (data.primaryRole) primaryRole = String(data.primaryRole).toUpperCase() as Role;
             if (data.panel) panel = data.panel;
             if (data.status) status = data.status;
           }
@@ -52,6 +52,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.error("Failed to load user profile:", err);
         }
 
+        console.log('[AUTH DEBUG] Setting userProfile', {
+          uid: user.uid,
+          roles,
+          primaryRole,
+          dataRolesArray: roles,
+        });
         setUserProfile({
           uid: user.uid,
           email: user.email,
@@ -66,8 +72,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLoginAt: new Date().toISOString(),
         });
       } else {
+        console.log('[AUTH DEBUG] User is null, clearing profile');
         setUserProfile(null);
       }
+      console.log('[AUTH DEBUG] Setting loading to false');
       setLoading(false);
     });
     return () => unsubscribe();
