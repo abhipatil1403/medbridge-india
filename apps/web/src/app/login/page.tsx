@@ -7,7 +7,7 @@ import { signIn, signInWithGoogle } from "../../lib/firebase/auth";
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading: authLoading, userProfile } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,12 +26,27 @@ function LoginPageContent() {
     return url;
   };
 
-  // If user is already logged in, redirect immediately
-  if (isAuthenticated) {
-    const redirect = safeRedirect(searchParams.get("redirect"));
-    router.replace(redirect ?? "/customer/dashboard");
-    return null;
-  }
+  // If user is already logged in, redirect based on role
+  React.useEffect(() => {
+    if (isAuthenticated && !authLoading) {
+      const redirect = safeRedirect(searchParams.get("redirect"));
+      if (redirect) {
+        router.replace(redirect);
+      } else {
+        // Route based on roles
+        const roles = userProfile?.roles || [];
+        if (roles.includes('SUPER_ADMIN') || roles.includes('ADMIN')) {
+          router.replace('/admin');
+        } else if (roles.includes('SUPPORT_AGENT')) {
+          router.replace('/support/cases'); // adjust if support dashboard is different
+        } else if (roles.includes('PROVIDER')) {
+          router.replace('/provider');
+        } else {
+          router.replace('/customer/dashboard');
+        }
+      }
+    }
+  }, [isAuthenticated, authLoading, userProfile, router, searchParams]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,8 +54,7 @@ function LoginPageContent() {
     setLoading(true);
     try {
       await signIn(email, password);
-      const redirect = safeRedirect(searchParams.get("redirect"));
-      router.replace(redirect ?? "/customer/dashboard");
+      // Let the useEffect handle the redirection once AuthProvider loads the profile
     } catch (err: any) {
       const code = err?.code;
       let msg = "Authentication failed. Please try again.";
@@ -49,7 +63,6 @@ function LoginPageContent() {
       else if (code === "auth/wrong-password") msg = "Incorrect password.";
       else if (code === "auth/too-many-requests") msg = "Too many attempts. Try later.";
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
@@ -59,15 +72,13 @@ function LoginPageContent() {
     setLoading(true);
     try {
       await signInWithGoogle();
-      const redirect = safeRedirect(searchParams.get("redirect"));
-      router.replace(redirect ?? "/customer/dashboard");
+      // Let the useEffect handle the redirection once AuthProvider loads the profile
     } catch (err: any) {
       const code = err?.code;
       let msg = "Google sign‑in failed. Please try again.";
       if (code === "auth/popup-closed-by-user") msg = "Sign‑in popup closed before completing.";
       else if (code === "auth/cancelled-popup-request") msg = "Sign‑in cancelled.";
       setError(msg);
-    } finally {
       setLoading(false);
     }
   };
