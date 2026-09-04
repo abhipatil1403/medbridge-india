@@ -52,14 +52,28 @@ class CsvAdapter(BaseSourceAdapter):
         # Generate a unique external identifier if none is provided
         external_id = parsed_item.get("hospital_name", "").replace(" ", "_").lower() + "_" + parsed_item.get("city", "").replace(" ", "_").lower()
         
+        lat = parsed_item.get("latitude")
+        lng = parsed_item.get("longitude")
+        coordinates = f"{lat},{lng}" if lat and lng else None
+
+        data_origin = parsed_item.get("data_origin") or "REAL_PUBLIC"
+        if str(data_origin).upper() == "SYNTHETIC":
+            data_origin = "SYNTHETIC"
+        else:
+            data_origin = "REAL_PUBLIC"
+            
+        provider_type = str(parsed_item.get("provider_type", "HOSPITAL")).upper()
+        if provider_type not in ["HOSPITAL", "CLINIC"]:
+            provider_type = "HOSPITAL"
+        
         return {
             "externalIdentifier": external_id,
             "name": parsed_item.get("hospital_name", ""),
-            "providerType": parsed_item.get("provider_type", "HOSPITAL").upper(),
+            "providerType": provider_type,
             "city": parsed_item.get("city", ""),
             "state": parsed_item.get("state", ""),
             "country": parsed_item.get("country", "India"),
-            "coordinates": parsed_item.get("coordinates", None),
+            "coordinates": coordinates,
             "nearestAirportId": parsed_item.get("nearest_airport", None),
             "website": parsed_item.get("website", None),
             "email": parsed_item.get("contact_email", None),
@@ -69,15 +83,20 @@ class CsvAdapter(BaseSourceAdapter):
             "reviewCount": safe_int(parsed_item.get("rating_count")),
             "ratingSource": parsed_item.get("rating_source", None),
             "treatments": [parsed_item.get("treatment_name", "").strip()] if parsed_item.get("treatment_name") else [],
-            "sourceId": self.source_id,
+            "sourceId": parsed_item.get("source_id") or self.source_id,
             "rawRecordId": raw_record_id,
-            "retrievedAt": retrieved_at,
-            "dataOrigin": "REAL_PUBLIC",
+            "retrievedAt": parsed_item.get("retrieved_at") or retrieved_at,
+            "dataOrigin": data_origin,
+            
             # Additional metadata for services
             "_treatment_id": parsed_item.get("treatment_id", None),
             "_treatment_name": parsed_item.get("treatment_name", None),
+            "_treatment_category": parsed_item.get("treatment_category", None),
+            "_disease_condition": parsed_item.get("disease_condition", None),
             "_cost_min_usd": safe_float(parsed_item.get("cost_min_usd")),
             "_cost_max_usd": safe_float(parsed_item.get("cost_max_usd")),
+            "_cost_currency": parsed_item.get("cost_currency", "USD"),
             "_cost_source": parsed_item.get("cost_source", None),
             "_cost_verified_at": parsed_item.get("cost_verified_at", None),
+            "_source_url": parsed_item.get("source_url", None),
         }

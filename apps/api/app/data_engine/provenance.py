@@ -10,12 +10,22 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
     db = get_db()
     now = datetime.utcnow().isoformat()
     
+    # Determine entity type from candidate class name
+    cls_name = type(candidate).__name__
+    if cls_name == "TreatmentCandidate":
+        entity_type = "TREATMENT"
+    elif cls_name == "ProviderServiceCandidate":
+        entity_type = "PROVIDER_SERVICE"
+    else:
+        entity_type = "HOSPITAL"
+    
     # 1. Create a sourceRecord
-    source_record_id = f"src_rec_{candidate.rawRecordId}"
+    # Make ID unique per candidate
+    source_record_id = f"src_rec_{candidate.rawRecordId}_{candidate.externalIdentifier}"
     db.collection("sourceRecords").document(source_record_id).set({
         "sourceId": candidate.sourceId,
         "rawRecordId": candidate.rawRecordId,
-        "entityType": "HOSPITAL",
+        "entityType": entity_type,
         "entityId": match_id if match_level == "EXACT_MATCH" else None,
         "retrievedAt": candidate.retrievedAt,
         "verificationStatus": "UNVERIFIED",
@@ -48,7 +58,7 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
         "sourceId": candidate.sourceId,
         "rawRecordId": candidate.rawRecordId,
         "normalizationRecordId": norm_record_id,
-        "entityType": "HOSPITAL",
+        "entityType": entity_type,
         "entityId": match_id if match_level == "EXACT_MATCH" else None,
         "matchType": match_level,
         "status": "PENDING",
@@ -57,3 +67,4 @@ def create_provenance_records(candidate: Any, match_id: str, match_level: str, n
         "createdAt": now
     })
     create_provenance_records._pending_cache.add(candidate.externalIdentifier)
+
