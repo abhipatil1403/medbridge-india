@@ -107,6 +107,12 @@ export interface Hospital extends ProviderBase {
   beds?: number | null;
   emergencyServices?: string | null;
   systemsOfMedicine?: string[];
+
+  // Logistics (Stable)
+  coordinates?: { lat: number; lng: number } | null;
+  nearestAirportId?: string | null;
+  localTransportAvailability?: boolean | null;
+  accommodationReferences?: string[]; // IDs or refs to known accommodations
 }
 
 export interface Doctor extends ProviderBase {
@@ -132,7 +138,48 @@ export interface CostEstimate {
   status: ProviderStatus;
 }
 
+export interface ProviderService {
+  id?: string;
+  providerId: string;
+  treatmentId: string;
+  treatmentName?: string;
+  status: ProviderStatus;
+  estimatedCostMin?: number;
+  estimatedCostMax?: number;
+  currency?: string;
+  source?: string;
+  verificationStatus?: string;
+  lastCheckedAt?: string;
+}
+
+export interface Location {
+  id?: string;
+  city: string;
+  state?: string;
+  country: string;
+  coordinates?: { lat: number; lng: number } | null;
+  majorAirports?: string[];
+  status: ProviderStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Case Models ──────────────────────────────────────────────────────
+
+export interface PatientRequirements {
+  budgetMin?: number;
+  budgetMax?: number;
+  currency?: string;
+  accompanyingPeople?: number;
+  travelDurationDays?: number;
+  preferredCity?: string;
+  preferredCountryOfOrigin?: string;
+  requiresAccommodation?: boolean;
+  requiresLocalTransport?: boolean;
+  requiresFoodAssistance?: boolean;
+  accessibilityNeeds?: string[];
+  languagePreferences?: string[];
+}
 
 export interface Case {
   id?: string;
@@ -148,6 +195,7 @@ export interface Case {
   preferredTimeline: string;
   inquiry: string;
   preferredLanguage: string;
+  requirements?: PatientRequirements; // Progressive requirements
   currentStage: CaseStage;
   priority: CasePriority;
 

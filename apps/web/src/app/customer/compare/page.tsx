@@ -1,29 +1,29 @@
 'use client';
 
 import React, { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getHospitalById } from '../../../features/providers/providerService';
-import { Hospital } from '../../../types/models';
+import { getTreatmentOptionsByIds, TreatmentOption } from '../../../features/search/providerOptionsService';
 
 function CompareContent() {
   const searchParams = useSearchParams();
-  const ids = searchParams.get('ids')?.split(',') || [];
+  const router = useRouter();
+  const serviceIds = searchParams.get('serviceIds')?.split(',') || [];
   
-  const [providers, setProviders] = useState<Hospital[]>([]);
+  const [options, setOptions] = useState<TreatmentOption[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function load() {
-      if (ids.length === 0) {
+      if (serviceIds.length < 2) {
         setLoading(false);
         return;
       }
       
-      const toFetch = ids.slice(0, 3); // Max 3 providers
+      const toFetch = serviceIds.slice(0, 3); // Max 3 options
       try {
-        const results = await Promise.all(toFetch.map(id => getHospitalById(id)));
-        setProviders(results.filter(r => r !== null) as Hospital[]);
+        const results = await getTreatmentOptionsByIds(toFetch);
+        setOptions(results);
       } catch (err) {
         console.error(err);
       } finally {
@@ -34,114 +34,134 @@ function CompareContent() {
   }, [searchParams]);
 
   if (loading) {
-    return <div className="p-12 text-center">Loading comparison...</div>;
+    return (
+      <div className="flex justify-center p-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
   }
 
-  if (providers.length === 0) {
+  if (options.length < 2) {
     return (
-      <div className="p-12 text-center max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-4">Compare Providers</h1>
-        <p className="mb-4 text-gray-600">No providers selected for comparison.</p>
-        <Link href="/customer/search" className="text-blue-600 hover:underline">
-          Go to Search
-        </Link>
+      <div className="p-12 text-center max-w-2xl mx-auto bg-white rounded-lg border shadow-sm mt-8">
+        <h1 className="text-2xl font-bold mb-4 text-gray-900">Compare Options</h1>
+        <p className="mb-4 text-gray-600">Please select at least two options to compare.</p>
+        <button onClick={() => router.back()} className="text-blue-600 hover:underline font-medium">
+          &larr; Go back to options
+        </button>
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <div className="mb-6">
-        <Link href="/customer/search" className="text-blue-600 hover:underline text-sm font-medium">
-          &larr; Back to Search
-        </Link>
+      <div className="mb-6 flex justify-between items-center">
+        <button onClick={() => router.back()} className="text-blue-600 hover:underline text-sm font-medium">
+          &larr; Back to Options
+        </button>
       </div>
       
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Compare Providers</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Compare your options</h1>
+        <p className="text-gray-600 mt-1 text-sm">
+          MedBridge provides informational comparisons based on available information. It does not provide medical advice.
+        </p>
+      </div>
       
       <div className="overflow-x-auto bg-white border rounded-lg shadow-sm">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr>
               <th className="p-4 border-b border-r bg-gray-50 w-48 shrink-0 font-medium text-gray-700">Features</th>
-              {providers.map(p => (
-                <th key={`head-${p.id}`} className="p-4 border-b min-w-[250px] align-top bg-white">
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">{p.name}</h2>
-                  <Link href={`/customer/providers/${p.id}`} className="text-sm text-blue-600 hover:underline block mb-2">View Profile</Link>
-                  <Link href={`/customer/request-quote?providerId=${p.id}&providerName=${encodeURIComponent(p.name)}`} className="text-sm bg-blue-600 text-white px-3 py-1.5 rounded inline-block font-medium hover:bg-blue-700">
-                    Request Quote
-                  </Link>
+              {options.map(opt => (
+                <th key={`head-${opt.service.id}`} className="p-4 border-b min-w-[250px] align-top bg-white">
+                  <h2 className="text-xl font-bold text-gray-900 mb-1">{opt.provider?.name}</h2>
+                  <div className="text-sm text-gray-600 mb-3">{opt.provider?.city || 'Location unavailable'}</div>
+                  
+                  <div className="flex flex-col gap-2">
+                    <Link href={`/customer/providers/${opt.provider?.id}`} className="text-sm border border-blue-600 text-blue-600 px-3 py-1.5 rounded font-medium hover:bg-blue-50 text-center">
+                      View Details
+                    </Link>
+                  </div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody className="text-sm">
             <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Location</td>
-              {providers.map(p => (
-                <td key={`loc-${p.id}`} className="p-4 border-b align-top">
-                  {[p.town, p.city, p.district, p.state].filter(Boolean).join(', ') || 'Not available'}
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Treatment / Service</td>
+              {options.map(opt => (
+                <td key={`treat-${opt.service.id}`} className="p-4 border-b align-top">
+                  <span className="font-medium">{opt.service.treatmentName || 'Service available'}</span>
                 </td>
               ))}
             </tr>
             <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Care Type</td>
-              {providers.map(p => (
-                <td key={`care-${p.id}`} className="p-4 border-b align-top">{p.careType || '-'}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Category</td>
-              {providers.map(p => (
-                <td key={`cat-${p.id}`} className="p-4 border-b align-top">{p.category || '-'}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Specialties</td>
-              {providers.map(p => (
-                <td key={`spec-${p.id}`} className="p-4 border-b align-top">
-                  {p.specialties && p.specialties.length > 0 ? (
-                    <ul className="list-disc pl-4 space-y-1">
-                      {p.specialties.map(s => <li key={s}>{s}</li>)}
-                    </ul>
-                  ) : '-'}
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Estimated Cost</td>
+              {options.map(opt => (
+                <td key={`cost-${opt.service.id}`} className="p-4 border-b align-top">
+                  {(opt.service.estimatedCostMin || opt.service.estimatedCostMax) ? (
+                    <span className="text-green-700 font-medium">
+                      {opt.service.currency || 'INR'} {opt.service.estimatedCostMin || 0} - {opt.service.estimatedCostMax || 0}
+                    </span>
+                  ) : (
+                    <span className="text-gray-500">Not available</span>
+                  )}
                 </td>
               ))}
             </tr>
             <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Facilities</td>
-              {providers.map(p => (
-                <td key={`fac-${p.id}`} className="p-4 border-b align-top">
-                  {p.facilities ? (Array.isArray(p.facilities) ? p.facilities.join(', ') : String(p.facilities)) : '-'}
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Provider Type</td>
+              {options.map(opt => (
+                <td key={`type-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.provider?.careType || opt.provider?.category || 'Not available'}
                 </td>
               ))}
             </tr>
             <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Emergency Services</td>
-              {providers.map(p => (
-                <td key={`emg-${p.id}`} className="p-4 border-b align-top">{p.emergencyServices || '-'}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Bed Capacity</td>
-              {providers.map(p => (
-                <td key={`beds-${p.id}`} className="p-4 border-b align-top">{p.beds !== null && p.beds !== undefined ? `${p.beds} beds` : '-'}</td>
-              ))}
-            </tr>
-            <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Systems of Medicine</td>
-              {providers.map(p => (
-                <td key={`med-${p.id}`} className="p-4 border-b align-top">
-                  {p.systemsOfMedicine ? (Array.isArray(p.systemsOfMedicine) ? p.systemsOfMedicine.join(', ') : String(p.systemsOfMedicine)) : '-'}
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">City / State</td>
+              {options.map(opt => (
+                <td key={`loc-${opt.service.id}`} className="p-4 border-b align-top">
+                  {[opt.provider?.city, opt.provider?.state].filter(Boolean).join(', ') || 'Not available'}
                 </td>
               ))}
             </tr>
             <tr>
-              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Source</td>
-              {providers.map(p => (
-                <td key={`src-${p.id}`} className="p-4 border-b align-top text-gray-600">
-                  <div className="font-medium text-gray-900">{p.source}</div>
-                  <div className="mt-1">Last retrieved: {new Date(p.lastCheckedAt).toLocaleDateString()}</div>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Nearest Airport</td>
+              {options.map(opt => (
+                <td key={`air-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.provider?.nearestAirportId || 'Not available'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Local Transport</td>
+              {options.map(opt => (
+                <td key={`trans-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.provider?.localTransportAvailability ? 'Available' : 'Not specified'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Accommodation</td>
+              {options.map(opt => (
+                <td key={`acc-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.provider?.accommodationReferences?.length ? `${opt.provider.accommodationReferences.length} options referenced` : 'Not specified'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Verification Status</td>
+              {options.map(opt => (
+                <td key={`ver-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.service.verificationStatus === 'VERIFIED' ? (
+                    <span className="text-green-700 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                      Verified Cost
+                    </span>
+                  ) : (
+                    <span className="text-gray-600">Unverified Estimate</span>
+                  )}
                 </td>
               ))}
             </tr>
@@ -151,9 +171,10 @@ function CompareContent() {
     </div>
   );
 }
-export default function CompareProvidersPage() {
+
+export default function CompareOptionsPage() {
   return (
-    <Suspense fallback={<div className="p-12 text-center">Loading...</div>}>
+    <Suspense fallback={<div className="p-12 text-center">Loading comparison...</div>}>
       <CompareContent />
     </Suspense>
   );

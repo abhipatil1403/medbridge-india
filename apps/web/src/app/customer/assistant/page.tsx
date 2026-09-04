@@ -198,6 +198,35 @@ function AIAssistantPage() {
                       </div>
                     )}
 
+                    {msg.type === 'AI_REQUIREMENTS_UPDATE' && msg.data?.requirements && (
+                      <div className="mt-4 bg-white rounded p-4 shadow-sm border border-gray-200 text-sm">
+                        <h4 className="font-bold text-gray-900 mb-2">Collected Requirements</h4>
+                        <ul className="space-y-1 text-gray-700 mb-4">
+                          {Object.entries(msg.data.requirements).map(([key, value]) => (
+                            <li key={key}><span className="font-medium capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span> {String(value)}</li>
+                          ))}
+                        </ul>
+                        {msg.data.requirements.treatmentId || msg.data.requirements.treatmentName ? (
+                          <button 
+                            onClick={() => {
+                              const params = new URLSearchParams();
+                              if (msg.data.requirements.treatmentId) params.set('treatmentId', msg.data.requirements.treatmentId);
+                              if (msg.data.requirements.budgetMax) params.set('budgetMax', msg.data.requirements.budgetMax.toString());
+                              if (msg.data.requirements.preferredCity) params.set('city', msg.data.requirements.preferredCity);
+                              if (msg.data.requirements.requiresAccommodation) params.set('accommodation', 'true');
+                              if (msg.data.requirements.requiresLocalTransport) params.set('transport', 'true');
+                              router.push(`/customer/options?${params.toString()}`);
+                            }}
+                            className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium shadow-sm"
+                          >
+                            View Matching Options
+                          </button>
+                        ) : (
+                          <p className="text-gray-500 italic">Please specify a treatment to view options.</p>
+                        )}
+                      </div>
+                    )}
+
                   </div>
                 </div>
               ))
@@ -241,8 +270,8 @@ function AIAssistantPage() {
                 </svg>
               </button>
             </form>
-            <p className="text-center text-xs text-gray-400 mt-3">
-              AI generated responses may be inaccurate. This is not medical advice.
+            <p className="text-center text-xs text-gray-500 mt-3 max-w-2xl mx-auto">
+              MedBridge provides informational comparisons and general guidance based on available information. It does not provide medical advice or make medical decisions. Patients should consult qualified healthcare professionals before making treatment decisions.
             </p>
           </div>
           

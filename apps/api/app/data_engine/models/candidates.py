@@ -39,10 +39,53 @@ class HospitalCandidate(BaseModel):
     miscellaneousFacilities: Optional[str] = None
     collaborations: Optional[str] = None
     
+    # Logistics (Stable)
+    nearestAirportId: Optional[str] = None
+    localTransportAvailability: Optional[bool] = None
+    accommodationReferences: List[str] = Field(default_factory=list)
+    
     # Source-specific raw identities
     sourceStateId: Optional[str] = None
     sourceDistrictId: Optional[str] = None
     sourceRowNumber: Optional[str] = None
+    
+    # Provenance fields
+    sourceId: str
+    rawRecordId: str
+    retrievedAt: str
+
+class TreatmentCandidate(BaseModel):
+    externalIdentifier: str
+    name: str = Field(..., min_length=2)
+    specialtyId: Optional[str] = None
+    description: Optional[str] = None
+    
+    # Provenance fields
+    sourceId: str
+    rawRecordId: str
+    retrievedAt: str
+
+class ProviderServiceCandidate(BaseModel):
+    externalIdentifier: str
+    providerId: str
+    treatmentId: str
+    treatmentName: Optional[str] = None
+    estimatedCostMin: Optional[float] = None
+    estimatedCostMax: Optional[float] = None
+    currency: Optional[str] = None
+    
+    # Provenance fields
+    sourceId: str
+    rawRecordId: str
+    retrievedAt: str
+
+class LocationCandidate(BaseModel):
+    externalIdentifier: str
+    city: str
+    state: Optional[str] = None
+    country: str
+    coordinates: Optional[str] = None # JSON string or format for lat/lng
+    majorAirports: List[str] = Field(default_factory=list)
     
     # Provenance fields
     sourceId: str

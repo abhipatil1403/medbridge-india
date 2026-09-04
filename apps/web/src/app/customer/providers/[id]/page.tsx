@@ -147,6 +147,33 @@ export default function ProviderProfile() {
             </div>
           ) : null}
 
+          {/* Logistics & Planning */}
+          <div className="bg-white border rounded-lg p-6 shadow-sm">
+            <h2 className="text-xl font-bold mb-4 text-gray-800">Logistics & Planning</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="border p-4 rounded bg-gray-50">
+                <h3 className="font-semibold text-gray-700 mb-1">Nearest Airport</h3>
+                <p className="text-gray-900">{hospital.nearestAirportId || 'Information not available'}</p>
+              </div>
+              <div className="border p-4 rounded bg-gray-50">
+                <h3 className="font-semibold text-gray-700 mb-1">Local Transport</h3>
+                <p className="text-gray-900">{hospital.localTransportAvailability ? 'Options available near provider' : 'Information not available'}</p>
+              </div>
+              <div className="border p-4 rounded bg-gray-50 sm:col-span-2">
+                <h3 className="font-semibold text-gray-700 mb-1">Accommodation</h3>
+                {hospital.accommodationReferences && hospital.accommodationReferences.length > 0 ? (
+                  <ul className="list-disc pl-5 text-gray-900">
+                    {hospital.accommodationReferences.map((acc, i) => (
+                      <li key={i}>{acc}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-900">Accommodation information not available.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Estimates */}
           {estimates.length > 0 && (
             <div className="bg-white border rounded-lg p-6 shadow-sm">
@@ -219,6 +246,40 @@ export default function ProviderProfile() {
               <p className="text-gray-500 text-sm italic">Accreditation information not available from this source.</p>
             )}
           </div>
+
+          {/* Explore More */}
+          <div className="bg-gradient-to-br from-indigo-50 to-blue-50 border border-indigo-100 rounded-lg p-5 shadow-sm">
+            <h3 className="font-semibold text-indigo-900 mb-3 flex items-center gap-2">
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+              Explore More
+            </h3>
+            <ul className="space-y-3 text-sm text-indigo-800">
+              {hospital.nearestAirportId && (
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 mt-0.5">•</span>
+                  <span>This provider is accessible via <strong>{hospital.nearestAirportId}</strong>. Check if other options are closer to your preferred arrival point.</span>
+                </li>
+              )}
+              {!hospital.accommodationReferences?.length && (
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 mt-0.5">•</span>
+                  <span>This option lacks accommodation references. You may want to consider providers that list nearby places to stay.</span>
+                </li>
+              )}
+              {hospital.verificationStatus !== 'VERIFIED' && (
+                <li className="flex items-start gap-2">
+                  <span className="shrink-0 mt-0.5">•</span>
+                  <span>Some information is unverified. Compare this with verified options for more certainty.</span>
+                </li>
+              )}
+            </ul>
+            <div className="mt-4">
+              <Link href="/customer/options" className="text-indigo-600 hover:underline font-medium text-sm">
+                View other options &rarr;
+              </Link>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
