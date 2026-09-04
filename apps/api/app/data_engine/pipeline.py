@@ -5,8 +5,8 @@ from .adapters.fixture_adapter import FixtureHospitalAdapter
 from .adapters.ogd_hospital_adapter import OgdHospitalAdapter
 from .acquisition import calculate_content_hash, store_raw_payload, create_raw_record
 from .normalization import create_normalization_record
-from .validation import validate_hospital_candidate, update_normalization_status
-from .deduplication import deduplicate_hospital
+from .validation import validate_provider_candidate, update_normalization_status
+from .deduplication import deduplicate_provider
 from .provenance import create_provenance_records
 
 def update_job_status(job_id: str, updates: dict):
@@ -148,7 +148,7 @@ def run_pipeline(source_id: str):
                 norm_record = create_normalization_record(raw_record.rawRecordId, source_id, "HOSPITAL", normalized_data.get("externalIdentifier", ""), normalized_data)
                 
                 # 6. Validate
-                candidate, val_errors = validate_hospital_candidate(norm_record)
+                candidate, val_errors = validate_provider_candidate(norm_record)
                 if val_errors:
                     update_normalization_status(norm_record.normalizationRecordId, "REJECTED", val_errors)
                     rejected += 1
@@ -157,7 +157,7 @@ def run_pipeline(source_id: str):
                 update_normalization_status(norm_record.normalizationRecordId, "VALIDATED")
                 
                 # 7. Deduplicate
-                match_level, match_id = deduplicate_hospital(candidate)
+                match_level, match_id = deduplicate_provider(candidate)
                 
                 # 8. Provenance / Review Routing
                 create_provenance_records(candidate, match_id, match_level.value, norm_record.normalizationRecordId)

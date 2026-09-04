@@ -50,7 +50,14 @@ export default function AcquisitionJobsPage() {
               {jobs.map((job) => (
                 <tr key={job.id}>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-mono text-xs">{job.jobId?.substring(0,12)}...</td>
-                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{job.sourceId}</td>
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {job.sourceId}
+                    {job.sourceId?.includes('synthetic') && (
+                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs font-bold rounded border border-purple-200 uppercase">
+                        Synthetic — Development Data
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                     <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                       job.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :

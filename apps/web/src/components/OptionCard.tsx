@@ -30,10 +30,28 @@ export default function OptionCard({ option, isSelectedForCompare, onToggleCompa
           <div className="w-full">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h3 className="text-xl font-bold text-gray-900">{provider.name}</h3>
+              {provider.providerType && (
+                <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-xs font-medium rounded border border-blue-200">
+                  {provider.providerType}
+                </span>
+              )}
               {provider.careType && (
                 <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                   {provider.careType}
                 </span>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-3 mb-3">
+              {provider.rating ? (
+                <div className="flex items-center gap-1 text-sm font-medium text-gray-800">
+                  <span className="text-yellow-500">★</span> {provider.rating} 
+                  <span className="text-gray-500 font-normal ml-1">
+                    ({provider.reviewCount || 0} reviews via {provider.ratingSource || 'Public records'})
+                  </span>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 italic">No public rating available</div>
               )}
             </div>
             
@@ -61,13 +79,13 @@ export default function OptionCard({ option, isSelectedForCompare, onToggleCompa
                 <div className="text-sm font-medium text-gray-900">Logistics & Proximity</div>
                 <ul className="text-sm text-gray-600 mt-1 space-y-1">
                   <li>
-                    Nearest Airport: {provider.nearestAirportId || 'Not specified'}
+                    Nearest Airport: <span className={provider.nearestAirportId ? "text-gray-900" : "text-gray-400 italic"}>{provider.nearestAirportId || 'Unknown'}</span>
                   </li>
                   <li>
-                    Local Transport: {provider.localTransportAvailability ? 'Available' : 'Not specified'}
+                    Local Transport: <span className={provider.localTransportAvailability ? "text-gray-900" : "text-gray-400 italic"}>{provider.localTransportAvailability ? 'Available' : 'Unknown'}</span>
                   </li>
                   <li>
-                    Accommodation: {provider.accommodationReferences?.length ? `${provider.accommodationReferences.length} options listed` : 'Not specified'}
+                    Accommodation: <span className={provider.accommodationReferences?.length ? "text-gray-900" : "text-gray-400 italic"}>{provider.accommodationReferences?.length ? `${provider.accommodationReferences.length} options listed` : 'Unknown'}</span>
                   </li>
                 </ul>
               </div>
@@ -77,11 +95,20 @@ export default function OptionCard({ option, isSelectedForCompare, onToggleCompa
               <div className="bg-blue-50 border border-blue-100 rounded p-2 mb-3">
                 <div className="text-xs font-semibold text-blue-800 uppercase tracking-wider mb-1">Requirement Match</div>
                 <div className="flex flex-wrap gap-1">
-                  {matchReasons.map((reason: string, idx: number) => (
-                    <span key={idx} className="bg-white text-blue-700 text-xs px-2 py-1 rounded shadow-sm">
-                      {reason}
-                    </span>
-                  ))}
+                  {matchReasons.map((reason: string, idx: number) => {
+                    const isPositive = reason.startsWith('✓');
+                    const isWarning = reason.startsWith('△');
+                    let colorClass = "bg-white text-blue-700 border border-blue-200";
+                    
+                    if (isPositive) colorClass = "bg-green-50 text-green-700 border border-green-200";
+                    if (isWarning) colorClass = "bg-yellow-50 text-yellow-700 border border-yellow-200";
+                    
+                    return (
+                      <span key={idx} className={`${colorClass} text-xs px-2 py-1 rounded shadow-sm`}>
+                        {reason}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}

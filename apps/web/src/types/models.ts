@@ -83,8 +83,10 @@ export const STAGE_CONFIG: Record<CaseStage, { color: string }> = {
 export interface ProviderBase {
   id?: string;
   name: string;
+  providerType: 'HOSPITAL' | 'CLINIC';
   city: string | null;
   state?: string | null;
+  country?: string | null;
   district?: string | null;
   town?: string | null;
   village?: string | null;
@@ -94,8 +96,10 @@ export interface ProviderBase {
   source: string;
   verificationStatus: string;
   lastCheckedAt: string;
+  lastVerifiedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
   _provenance?: Record<string, any>;
 }
 
@@ -107,6 +111,17 @@ export interface Hospital extends ProviderBase {
   beds?: number | null;
   emergencyServices?: string | null;
   systemsOfMedicine?: string[];
+
+  // Contact Info
+  website?: string | null;
+  phone?: string | null;
+  email?: string | null;
+
+  // Reputation (Publicly Sourced)
+  rating?: number | null;
+  reviewCount?: number | null;
+  ratingSource?: string | null;
+  ratingRetrievedAt?: string | null;
 
   // Logistics (Stable)
   coordinates?: { lat: number; lng: number } | null;
@@ -147,9 +162,16 @@ export interface ProviderService {
   estimatedCostMin?: number;
   estimatedCostMax?: number;
   currency?: string;
+  costSource?: string;
+  costVerifiedAt?: string;
+  availabilityStatus?: string;
+  serviceDescription?: string;
   source?: string;
+  sourceReferences?: string[];
   verificationStatus?: string;
   lastCheckedAt?: string;
+  lastVerifiedAt?: string;
+  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
 }
 
 export interface Location {
@@ -158,7 +180,12 @@ export interface Location {
   state?: string;
   country: string;
   coordinates?: { lat: number; lng: number } | null;
+  nearestAirport?: string | null;
+  airportCoordinates?: { lat: number; lng: number } | null;
   majorAirports?: string[];
+  connectivityInformation?: string | null;
+  sourceReferences?: string[];
+  lastVerifiedAt?: string;
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;
@@ -367,8 +394,18 @@ export interface Specialty {
 export interface Treatment {
   id?: string;
   name: string;
+  slug?: string;
+  category?: string;
+  diseaseCondition?: string;
+  commonNames?: string[];
+  aliases?: string[];
+  treatmentType?: string;
   specialtyId: string;
   description?: string;
+  sourceReferences?: string[];
+  lastVerifiedAt?: string;
+  verificationStatus?: string;
+  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;

@@ -1,13 +1,13 @@
 from typing import Tuple, List, Optional
 from pydantic import ValidationError
-from .models.candidates import HospitalCandidate, TreatmentCandidate, ProviderServiceCandidate
+from .models.candidates import ProviderCandidate, TreatmentCandidate, ProviderServiceCandidate
 from .models.jobs import NormalizationRecord
 from app.core.firebase import get_db
 from datetime import datetime
 
-def validate_hospital_candidate(record: NormalizationRecord) -> Tuple[Optional[HospitalCandidate], List[str]]:
+def validate_provider_candidate(record: NormalizationRecord) -> Tuple[Optional[ProviderCandidate], List[str]]:
     try:
-        candidate = HospitalCandidate(**record.normalizedData)
+        candidate = ProviderCandidate(**record.normalizedData)
         
         # Additional custom deterministic validation
         if not candidate.name.strip():

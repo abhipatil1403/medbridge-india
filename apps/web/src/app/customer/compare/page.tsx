@@ -114,7 +114,26 @@ function CompareContent() {
               <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Provider Type</td>
               {options.map(opt => (
                 <td key={`type-${opt.service.id}`} className="p-4 border-b align-top">
-                  {opt.provider?.careType || opt.provider?.category || 'Not available'}
+                  {opt.provider?.providerType || 'Not specified'}
+                </td>
+              ))}
+            </tr>
+            <tr>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Public Rating</td>
+              {options.map(opt => (
+                <td key={`rating-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.provider?.rating ? (
+                    <div>
+                      <span className="text-yellow-600 font-medium">{opt.provider.rating} / 5</span>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {opt.provider.reviewCount} reviews
+                        <br/>
+                        Source: {opt.provider.ratingSource || 'Public records'}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-gray-400 italic">No rating available</span>
+                  )}
                 </td>
               ))}
             </tr>
@@ -151,6 +170,22 @@ function CompareContent() {
               ))}
             </tr>
             <tr>
+              <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Source & Data Origin</td>
+              {options.map(opt => (
+                <td key={`origin-${opt.service.id}`} className="p-4 border-b align-top">
+                  {opt.service.dataOrigin === 'SYNTHETIC' ? (
+                    <span className="text-purple-700 font-medium text-xs border border-purple-200 bg-purple-50 px-2 py-1 rounded">
+                      SYNTHETIC DATA
+                    </span>
+                  ) : (
+                    <span className="text-gray-600 text-sm">
+                      {opt.service.sourceReferences?.[0] || 'Public Records'}
+                    </span>
+                  )}
+                </td>
+              ))}
+            </tr>
+            <tr>
               <td className="p-4 border-b border-r bg-gray-50 font-medium text-gray-700">Verification Status</td>
               {options.map(opt => (
                 <td key={`ver-${opt.service.id}`} className="p-4 border-b align-top">
@@ -161,6 +196,11 @@ function CompareContent() {
                     </span>
                   ) : (
                     <span className="text-gray-600">Unverified Estimate</span>
+                  )}
+                  {opt.service.costVerifiedAt && (
+                    <div className="text-xs text-gray-400 mt-1">
+                      Last checked: {new Date(opt.service.costVerifiedAt).toLocaleDateString()}
+                    </div>
                   )}
                 </td>
               ))}

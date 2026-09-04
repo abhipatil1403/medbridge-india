@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Tuple, Optional
 from app.core.firebase import get_db
-from .models.candidates import HospitalCandidate
+from .models.candidates import ProviderCandidate
 import re
 
 class MatchLevel(Enum):
@@ -19,12 +19,12 @@ def normalize_string_for_match(s: str) -> str:
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
 
-def deduplicate_hospital(candidate: HospitalCandidate) -> Tuple[MatchLevel, Optional[str]]:
+def deduplicate_provider(candidate: ProviderCandidate) -> Tuple[MatchLevel, Optional[str]]:
     """
     Returns (MatchLevel, existing_canonical_id_if_any)
     """
     db = get_db()
-    hospitals_ref = db.collection("hospitals")
+    hospitals_ref = db.collection("providers")
     
     c_name = normalize_string_for_match(candidate.name)
     c_state = normalize_string_for_match(candidate.state or "")

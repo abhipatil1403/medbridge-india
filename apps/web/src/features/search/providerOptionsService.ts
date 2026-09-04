@@ -4,7 +4,7 @@ import { ProviderService, Hospital, Location } from '../../types/models';
 
 export interface TreatmentOption {
   service: ProviderService;
-  provider: Hospital | null; // using Hospital as the base provider for now
+  provider: Hospital | null; // Currently uses Hospital which inherits ProviderBase
   location: Location | null;
   matchScore?: number; // transparent matching score
   matchReasons?: string[];
@@ -19,7 +19,7 @@ export interface OptionsFilters {
 }
 
 export async function getTreatmentOptions(filters: OptionsFilters): Promise<TreatmentOption[]> {
-  const servicesRef = collection(db, 'provider_services');
+  const servicesRef = collection(db, 'providerServices');
   
   // 1. Find ProviderServices for the Treatment
   const servicesQuery = query(
@@ -43,11 +43,11 @@ export async function getTreatmentOptions(filters: OptionsFilters): Promise<Trea
     const matchReasons: string[] = ['Treatment availability found'];
 
     try {
-      const providerDoc = await getDoc(doc(db, 'hospitals', service.providerId));
+      const providerDoc = await getDoc(doc(db, 'providers', service.providerId));
       if (providerDoc.exists()) {
         provider = { id: providerDoc.id, ...providerDoc.data() } as Hospital;
         
-        // Location matching (if they have coordinates or nearestAirportId we would fetch Location, but for simplicity we rely on city/state on Hospital first)
+        // Location matching (if they have coordinates or nearestAirportId we would fetch Location, but for simplicity we rely on city/state on Provider first)
         // In a full implementation, we'd fetch the Location document if it exists as a separate collection.
       }
     } catch (e) {
@@ -77,14 +77,28 @@ export async function getTreatmentOptions(filters: OptionsFilters): Promise<Trea
     }
 
     // Logistics match
-    if (filters.accommodation && provider?.accommodationReferences && provider.accommodationReferences.length > 0) {
-      matchScore += 1;
-      matchReasons.push('Has accommodation references');
+    if (filters.accommodation) {
+      if (provider?.accommodationReferences && provider.accommodationReferences.length > 0) {
+        matchScore += 1;
+        matchReasons.push('✓ Has accommodation references');
+      } else {
+        matchReasons.push('△ Accommodation information unavailable');
+      }
     }
 
-    if (filters.transport && provider?.localTransportAvailability) {
+    if (filters.transport) {
+      if (provider?.localTransportAvailability) {
+        matchScore += 1;
+        matchReasons.push('✓ Has local transport options');
+      } else {
+        matchReasons.push('△ Transport information unavailable');
+      }
+    }
+    
+    // Additional ranking signals
+    if (provider?.nearestAirportId) {
       matchScore += 1;
-      matchReasons.push('Has local transport options');
+      matchReasons.push('✓ Airport access information available');
     }
 
     if (!skip && provider) {
@@ -109,12 +123,12 @@ export async function getTreatmentOptionsByIds(serviceIds: string[]): Promise<Tr
   
   for (const id of serviceIds) {
     try {
-      const serviceDoc = await getDoc(doc(db, 'provider_services', id));
+      const serviceDoc = await getDoc(doc(db, 'providerServices', id));
       if (!serviceDoc.exists()) continue;
       
       const service = { id: serviceDoc.id, ...serviceDoc.data() } as ProviderService;
       
-      const providerDoc = await getDoc(doc(db, 'hospitals', service.providerId));
+      const providerDoc = await getDoc(doc(db, 'providers', service.providerId));
       if (providerDoc.exists()) {
         const provider = { id: providerDoc.id, ...providerDoc.data() } as Hospital;
         options.push({

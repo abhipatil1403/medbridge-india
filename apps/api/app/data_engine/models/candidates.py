@@ -1,9 +1,10 @@
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
-class HospitalCandidate(BaseModel):
+class ProviderCandidate(BaseModel):
     externalIdentifier: str
     name: str = Field(..., min_length=2)
+    providerType: str = "HOSPITAL"
     city: Optional[str] = None
     citySource: Optional[str] = None
     state: Optional[str] = None
@@ -39,6 +40,13 @@ class HospitalCandidate(BaseModel):
     miscellaneousFacilities: Optional[str] = None
     collaborations: Optional[str] = None
     
+    # Public Reputation
+    rating: Optional[float] = None
+    reviewCount: Optional[int] = None
+    ratingSource: Optional[str] = None
+    ratingRetrievedAt: Optional[str] = None
+    email: Optional[str] = None
+    
     # Logistics (Stable)
     nearestAirportId: Optional[str] = None
     localTransportAvailability: Optional[bool] = None
@@ -53,17 +61,26 @@ class HospitalCandidate(BaseModel):
     sourceId: str
     rawRecordId: str
     retrievedAt: str
+    dataOrigin: str = "REAL_PUBLIC"
 
 class TreatmentCandidate(BaseModel):
     externalIdentifier: str
     name: str = Field(..., min_length=2)
+    slug: Optional[str] = None
+    category: Optional[str] = None
+    diseaseCondition: Optional[str] = None
+    commonNames: List[str] = Field(default_factory=list)
+    aliases: List[str] = Field(default_factory=list)
+    treatmentType: Optional[str] = None
     specialtyId: Optional[str] = None
     description: Optional[str] = None
+    sourceReferences: List[str] = Field(default_factory=list)
     
     # Provenance fields
     sourceId: str
     rawRecordId: str
     retrievedAt: str
+    dataOrigin: str = "REAL_PUBLIC"
 
 class ProviderServiceCandidate(BaseModel):
     externalIdentifier: str
@@ -73,11 +90,17 @@ class ProviderServiceCandidate(BaseModel):
     estimatedCostMin: Optional[float] = None
     estimatedCostMax: Optional[float] = None
     currency: Optional[str] = None
+    costSource: Optional[str] = None
+    costVerifiedAt: Optional[str] = None
+    availabilityStatus: Optional[str] = None
+    serviceDescription: Optional[str] = None
+    sourceReferences: List[str] = Field(default_factory=list)
     
     # Provenance fields
     sourceId: str
     rawRecordId: str
     retrievedAt: str
+    dataOrigin: str = "REAL_PUBLIC"
 
 class LocationCandidate(BaseModel):
     externalIdentifier: str
@@ -85,9 +108,14 @@ class LocationCandidate(BaseModel):
     state: Optional[str] = None
     country: str
     coordinates: Optional[str] = None # JSON string or format for lat/lng
+    nearestAirport: Optional[str] = None
+    airportCoordinates: Optional[str] = None
+    connectivityInformation: Optional[str] = None
     majorAirports: List[str] = Field(default_factory=list)
+    sourceReferences: List[str] = Field(default_factory=list)
     
     # Provenance fields
     sourceId: str
     rawRecordId: str
     retrievedAt: str
+    dataOrigin: str = "REAL_PUBLIC"
