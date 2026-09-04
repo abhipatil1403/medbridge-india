@@ -22,7 +22,7 @@ def cleanup_firestore():
     # Step 1: Purge Pending Legacy Candidates
     # Delete all documents from acquisitionReviews where sourceId is NOT manual_csv_import.
     print("Step 1: Purging legacy pending acquisition reviews...")
-    reviews = db.collection("acquisitionReviews").where("status", "==", "PENDING").stream()
+    reviews = list(db.collection("acquisitionReviews").where("status", "==", "PENDING").stream())
     for doc in reviews:
         data = doc.to_dict()
         source_id = data.get("sourceId", "")
@@ -35,7 +35,7 @@ def cleanup_firestore():
     print("\nStep 2: Removing published legacy data...")
     
     # Providers
-    providers = db.collection("providers").stream()
+    providers = list(db.collection("providers").stream())
     for doc in providers:
         data = doc.to_dict()
         origin = data.get("dataOrigin", "")
@@ -48,7 +48,7 @@ def cleanup_firestore():
             deleted_providers += 1
             
     # Provider Services
-    services = db.collection("providerServices").stream()
+    services = list(db.collection("providerServices").stream())
     for doc in services:
         data = doc.to_dict()
         origin = data.get("dataOrigin", "")
@@ -61,7 +61,7 @@ def cleanup_firestore():
             
     # Treatments
     # Usually treatments are master data, but if any were imported via OGD, we clean them up.
-    treatments = db.collection("treatments").stream()
+    treatments = list(db.collection("treatments").stream())
     for doc in treatments:
         data = doc.to_dict()
         origin = data.get("dataOrigin", "")
