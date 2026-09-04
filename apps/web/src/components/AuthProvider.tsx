@@ -37,10 +37,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const snap = await getDoc(docRef);
           if (snap.exists()) {
             const data = snap.data();
-            if (Array.isArray(data.roles)) {
+            if (Array.isArray(data.roles) && data.roles.length > 0) {
               roles = data.roles;
             } else if (data.roles && typeof data.roles === 'object') {
-              roles = Object.keys(data.roles).filter((k) => data.roles[k]) as Role[];
+              const objRoles = Object.keys(data.roles).filter((k) => data.roles[k]) as Role[];
+              if (objRoles.length > 0) roles = objRoles;
             }
             if (data.primaryRole) primaryRole = data.primaryRole;
             if (data.panel) panel = data.panel;
