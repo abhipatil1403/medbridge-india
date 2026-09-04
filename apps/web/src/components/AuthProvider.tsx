@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = observeAuthState(async (user: any) => {
+      setLoading(true);
       setCurrentUser(user);
       if (user) {
         let roles: Role[] = ['CUSTOMER'];

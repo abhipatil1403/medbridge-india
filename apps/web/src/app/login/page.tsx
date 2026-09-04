@@ -29,7 +29,7 @@ function LoginPageContent() {
   // If user is already logged in, redirect immediately
   if (isAuthenticated) {
     const redirect = safeRedirect(searchParams.get("redirect"));
-    router.replace(redirect ?? "/customer/search");
+    router.replace(redirect ?? "/customer/dashboard");
     return null;
   }
 
@@ -40,7 +40,7 @@ function LoginPageContent() {
     try {
       await signIn(email, password);
       const redirect = safeRedirect(searchParams.get("redirect"));
-      router.replace(redirect ?? "/customer/search");
+      router.replace(redirect ?? "/customer/dashboard");
     } catch (err: any) {
       const code = err?.code;
       let msg = "Authentication failed. Please try again.";
@@ -60,7 +60,7 @@ function LoginPageContent() {
     try {
       await signInWithGoogle();
       const redirect = safeRedirect(searchParams.get("redirect"));
-      router.replace(redirect ?? "/customer/search");
+      router.replace(redirect ?? "/customer/dashboard");
     } catch (err: any) {
       const code = err?.code;
       let msg = "Google sign‑in failed. Please try again.";
