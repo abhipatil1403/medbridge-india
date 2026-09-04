@@ -42,6 +42,7 @@ export default function NewDoctorPage() {
         source: 'MANUAL',
         verificationStatus: 'VERIFIED',
         lastCheckedAt: new Date().toISOString(),
+        providerType: 'DOCTOR',
       }, currentUser?.uid || 'admin', primaryRole || 'ADMIN');
       
       router.push('/admin/doctors');

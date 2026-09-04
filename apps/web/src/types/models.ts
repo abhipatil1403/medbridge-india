@@ -83,7 +83,7 @@ export const STAGE_CONFIG: Record<CaseStage, { color: string }> = {
 export interface ProviderBase {
   id?: string;
   name: string;
-  providerType: 'HOSPITAL' | 'CLINIC';
+  providerType: 'HOSPITAL' | 'CLINIC' | 'DOCTOR';
   city: string | null;
   state?: string | null;
   country?: string | null;

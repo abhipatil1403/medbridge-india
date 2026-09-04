@@ -38,6 +38,7 @@ export default function NewHospitalPage() {
         source: 'MANUAL',
         verificationStatus: 'VERIFIED',
         lastCheckedAt: new Date().toISOString(),
+        providerType: 'HOSPITAL',
       }, currentUser?.uid || 'admin', primaryRole || 'ADMIN');
       
       router.push(`/admin/providers/${id}`);
