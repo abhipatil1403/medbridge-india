@@ -2,90 +2,64 @@ import os
 import sys
 from pathlib import Path
 
-# Add the apps/api folder to the Python path to allow absolute imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from app.core.firebase import get_db
 
-def cleanup_firestore():
+def delete_collection(db, coll_ref, batch_size=400):
+    deleted_total = 0
+    while True:
+        docs = list(coll_ref.limit(batch_size).stream())
+        if not docs:
+            break
+            
+        batch = db.batch()
+        for doc in docs:
+            batch.delete(doc.reference)
+            
+        batch.commit()
+        deleted_total += len(docs)
+        print(f"  -> Deleted {deleted_total} records so far from {coll_ref.id}...")
+        
+    return deleted_total
+
+def main():
+    if os.environ.get("ENVIRONMENT") != "staging":
+        print("ERROR: ENVIRONMENT variable is not set to 'staging'. Aborting.")
+        sys.exit(1)
+        
+    if os.environ.get("CONFIRM_STAGING_WIPE") != "true":
+        print("ERROR: CONFIRM_STAGING_WIPE is not set to 'true'. Aborting.")
+        sys.exit(1)
+
     db = get_db()
+    project_id = db.project
+    print(f"TARGET PROJECT ID: {project_id}")
     
-    print("==================================================")
-    print("FIRESTORE STAGING CLEANUP")
-    print("==================================================")
+    if "staging" not in project_id.lower() and "dev" not in project_id.lower():
+        print("CRITICAL ERROR: Project ID does not contain 'staging' or 'dev'. Aborting.")
+        sys.exit(1)
+
+    collections_to_delete = [
+        "acquisitionJobs",
+        "rawRecords",
+        "normalizationRecords",
+        "acquisitionReviews",
+        "providers",
+        "treatments",
+        "providerServices",
+        "locations",
+        "sources"
+    ]
     
-    deleted_reviews = 0
-    deleted_providers = 0
-    deleted_treatments = 0
-    deleted_services = 0
+    print("\nStarting STAGING DATA ENGINE RESET...\n")
     
-    # Step 1: Purge Pending Legacy Candidates
-    # Delete all documents from acquisitionReviews where sourceId is NOT manual_csv_import.
-    print("Step 1: Purging legacy pending acquisition reviews...")
-    reviews = list(db.collection("acquisitionReviews").where("status", "==", "PENDING").stream())
-    for doc in reviews:
-        data = doc.to_dict()
-        source_id = data.get("sourceId", "")
-        if source_id != "manual_csv_import":
-            print(f" - Deleting legacy review: {doc.id} (Source: {source_id})")
-            doc.reference.delete()
-            deleted_reviews += 1
-            
-    # Step 2: Remove Published Legacy Data
-    print("\nStep 2: Removing published legacy data...")
-    
-    # Providers
-    providers = list(db.collection("providers").stream())
-    for doc in providers:
-        data = doc.to_dict()
-        origin = data.get("dataOrigin", "")
-        source_id = data.get("sourceId", "")
+    for coll_name in collections_to_delete:
+        print(f"--- Purging Collection: {coll_name} ---")
+        coll_ref = db.collection(coll_name)
+        count = delete_collection(db, coll_ref)
+        print(f"  -> Finished: Deleted {count} total records from {coll_name}.\n")
         
-        # Check if legacy
-        if origin == "SYNTHETIC" or "ogd" in source_id.lower():
-            print(f" - Deleting legacy published provider: {doc.id} (Name: {data.get('name')})")
-            doc.reference.delete()
-            deleted_providers += 1
-            
-    # Provider Services
-    services = list(db.collection("providerServices").stream())
-    for doc in services:
-        data = doc.to_dict()
-        origin = data.get("dataOrigin", "")
-        source_id = data.get("sourceId", "")
-        
-        if origin == "SYNTHETIC" or "ogd" in source_id.lower():
-            print(f" - Deleting legacy published provider service: {doc.id} (Treatment: {data.get('treatmentName')})")
-            doc.reference.delete()
-            deleted_services += 1
-            
-    # Treatments
-    # Usually treatments are master data, but if any were imported via OGD, we clean them up.
-    treatments = list(db.collection("treatments").stream())
-    for doc in treatments:
-        data = doc.to_dict()
-        origin = data.get("dataOrigin", "")
-        source_id = data.get("sourceId", "")
-        
-        if origin == "SYNTHETIC" or "ogd" in source_id.lower():
-            print(f" - Deleting legacy published treatment: {doc.id} (Name: {data.get('name')})")
-            doc.reference.delete()
-            deleted_treatments += 1
-            
-    print("\n==================================================")
-    print("CLEANUP SUMMARY")
-    print(f"Legacy Pending Reviews Deleted: {deleted_reviews}")
-    print(f"Legacy Published Providers Deleted: {deleted_providers}")
-    print(f"Legacy Published Provider Services Deleted: {deleted_services}")
-    print(f"Legacy Published Treatments Deleted: {deleted_treatments}")
-    print("==================================================")
-    print("Cleanup complete. You can now safely publish the manual_csv_import records via the Admin UI.")
+    print("\nStaging Reset Complete. Legacy OGD and previous public research data has been wiped.")
 
 if __name__ == "__main__":
-    
-    # Prompt for confirmation before running
-    response = input("WARNING: This will delete legacy OGD and SYNTHETIC records from the staging database. Are you sure you want to proceed? (y/N): ")
-    if response.lower() == 'y':
-        cleanup_firestore()
-    else:
-        print("Cleanup aborted.")
+    main()

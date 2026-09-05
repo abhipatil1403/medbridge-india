@@ -2,7 +2,8 @@ name: Data Acquisition Pipeline
 
 on:
   schedule:
-    - cron: '0 0 * * 0' # Run weekly on Sundays at midnight UTC
+    # DISABLED: Legacy OGD automation disabled to prevent interfering with public research dataset
+    # - cron: '0 0 * * 0' # Run weekly on Sundays at midnight UTC
   workflow_dispatch: # Allow manual execution
 
 permissions:
@@ -35,7 +36,8 @@ jobs:
       - name: Execute Acquisition CLI
         working-directory: ./apps/api
         run: |
-          python -m app.data_engine.__main__ ogd_national_hospital_directory
+          echo "Legacy OGD Ingestion is deprecated and disabled."
+          exit 1
           
       - name: Cleanup temporary credentials
         if: always()

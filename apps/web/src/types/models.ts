@@ -80,6 +80,8 @@ export const STAGE_CONFIG: Record<CaseStage, { color: string }> = {
 
 // ── Provider Models ──────────────────────────────────────────────────
 
+export type DataOrigin = 'REAL_PUBLIC' | 'SYNTHETIC';
+
 export interface ProviderBase {
   id?: string;
   name: string;
@@ -99,7 +101,7 @@ export interface ProviderBase {
   lastVerifiedAt?: string;
   createdAt?: string;
   updatedAt?: string;
-  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
+  dataOrigin?: DataOrigin;
   _provenance?: Record<string, any>;
 }
 
@@ -171,7 +173,7 @@ export interface ProviderService {
   verificationStatus?: string;
   lastCheckedAt?: string;
   lastVerifiedAt?: string;
-  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
+  dataOrigin?: DataOrigin;
 }
 
 export interface Location {
@@ -405,7 +407,7 @@ export interface Treatment {
   sourceReferences?: string[];
   lastVerifiedAt?: string;
   verificationStatus?: string;
-  dataOrigin?: 'REAL_PUBLIC' | 'SYNTHETIC';
+  dataOrigin?: DataOrigin;
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;
