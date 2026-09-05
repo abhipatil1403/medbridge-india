@@ -6,6 +6,7 @@ import { AcquisitionReview } from '../../../types/models';
 import { adminAcquisitionService } from '../../../features/admin/adminAcquisitionService';
 import { useAuth } from '../../../components/AuthProvider';
 import { Badge } from '../../../components/Badge';
+import { DataOriginBadge } from '../../../components/DataOriginBadge';
 
 export default function VerificationPage() {
   const { currentUser } = useAuth();
@@ -15,6 +16,7 @@ export default function VerificationPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [matchFilter, setMatchFilter] = useState('ALL');
+  const [typeFilter, setTypeFilter] = useState('ALL');
 
   const [error, setError] = useState<string | null>(null);
 
@@ -36,16 +38,76 @@ export default function VerificationPage() {
     load();
   }, [currentUser]);
 
+  const getCandidateName = (rev: AcquisitionReview) => {
+    if (!rev.entityType || ['HOSPITAL', 'CLINIC', 'DOCTOR'].includes(rev.entityType)) {
+      return rev.candidateData?.name || 'Unknown';
+    }
+    if (rev.entityType === 'TREATMENT') {
+      return rev.candidateData?.name || 'Unknown';
+    }
+    if (rev.entityType === 'PROVIDER_SERVICE') {
+      if (rev.candidateData?.providerId && rev.candidateData?.treatmentName) {
+        const formattedProvider = rev.candidateData.providerId.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        return `${formattedProvider} — ${rev.candidateData.treatmentName}`;
+      }
+      return 'Unknown';
+    }
+    return rev.candidateData?.name || 'Unknown';
+  };
+
+  const getLocation = (rev: AcquisitionReview) => {
+    if (!rev.entityType || ['HOSPITAL', 'CLINIC', 'DOCTOR'].includes(rev.entityType)) {
+      return rev.candidateData?.city || rev.candidateData?.district || rev.candidateData?.state || 'Unknown';
+    }
+    if (rev.entityType === 'TREATMENT') {
+      return 'Treatment';
+    }
+    if (rev.entityType === 'PROVIDER_SERVICE') {
+      return '—';
+    }
+    return 'Unknown';
+  };
+
+  const getTypeLabel = (rev: AcquisitionReview) => {
+    switch (rev.entityType) {
+      case 'HOSPITAL': return 'Hospital';
+      case 'CLINIC': return 'Clinic';
+      case 'DOCTOR': return 'Doctor';
+      case 'TREATMENT': return 'Treatment';
+      case 'PROVIDER_SERVICE': return 'Provider Service';
+      default: return 'Unknown';
+    }
+  };
+
   const filteredReviews = reviews.filter(rev => {
     if (statusFilter !== 'ALL' && rev.status !== statusFilter) return false;
     if (matchFilter !== 'ALL' && rev.matchType !== matchFilter) return false;
+    if (typeFilter !== 'ALL') {
+      if (typeFilter === 'PROVIDERS' && !['HOSPITAL', 'CLINIC', 'DOCTOR'].includes(rev.entityType || '')) return false;
+      if (typeFilter === 'HOSPITALS' && rev.entityType !== 'HOSPITAL') return false;
+      if (typeFilter === 'CLINICS' && rev.entityType !== 'CLINIC') return false;
+      if (typeFilter === 'DOCTORS' && rev.entityType !== 'DOCTOR') return false;
+      if (typeFilter === 'TREATMENTS' && rev.entityType !== 'TREATMENT') return false;
+      if (typeFilter === 'PROVIDER_SERVICES' && rev.entityType !== 'PROVIDER_SERVICE') return false;
+    }
     
     if (searchTerm) {
-      const name = rev.candidateData?.name?.toLowerCase() || '';
-      if (!name.includes(searchTerm.toLowerCase())) return false;
+      const term = searchTerm.toLowerCase();
+      const name = getCandidateName(rev).toLowerCase();
+      const location = getLocation(rev).toLowerCase();
+      const sourceId = (rev.sourceId || '').toLowerCase();
+      
+      if (!name.includes(term) && !location.includes(term) && !sourceId.includes(term)) {
+        return false;
+      }
     }
     return true;
   });
+
+  const totalPending = reviews.filter(r => r.status === 'PENDING').length;
+  const totalProviders = reviews.filter(r => r.status === 'PENDING' && ['HOSPITAL', 'CLINIC', 'DOCTOR'].includes(r.entityType || '')).length;
+  const totalTreatments = reviews.filter(r => r.status === 'PENDING' && r.entityType === 'TREATMENT').length;
+  const totalProviderServices = reviews.filter(r => r.status === 'PENDING' && r.entityType === 'PROVIDER_SERVICE').length;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -53,18 +115,50 @@ export default function VerificationPage() {
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-2">Data Verification Queue</h1>
         <p className="text-slate-600 max-w-3xl">Review newly acquired data from external sources, resolve duplicates, and approve for publishing.</p>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <span className="text-sm font-medium text-slate-500 mb-1">Pending Reviews</span>
+          <span className="text-3xl font-extrabold text-indigo-700">{totalPending}</span>
+        </div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <span className="text-sm font-medium text-slate-500 mb-1">Providers</span>
+          <span className="text-3xl font-extrabold text-emerald-600">{totalProviders}</span>
+        </div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <span className="text-sm font-medium text-slate-500 mb-1">Treatments</span>
+          <span className="text-3xl font-extrabold text-cyan-600">{totalTreatments}</span>
+        </div>
+        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col">
+          <span className="text-sm font-medium text-slate-500 mb-1">Provider Services</span>
+          <span className="text-3xl font-extrabold text-purple-600">{totalProviderServices}</span>
+        </div>
+      </div>
       
-      <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4">
-        <div className="flex-grow relative">
+      <div className="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4 flex-wrap">
+        <div className="flex-grow relative min-w-[200px]">
            <svg className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
             type="text" 
-            placeholder="Search candidate name..." 
+            placeholder="Search candidate, location, source..." 
             className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition-shadow"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
+        <select 
+          className="md:w-48 py-2.5 px-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition-shadow bg-white"
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+        >
+          <option value="ALL">All Types</option>
+          <option value="PROVIDERS">Providers</option>
+          <option value="TREATMENTS">Treatments</option>
+          <option value="PROVIDER_SERVICES">Provider Services</option>
+          <option value="HOSPITALS">Hospitals</option>
+          <option value="CLINICS">Clinics</option>
+          <option value="DOCTORS">Doctors</option>
+        </select>
         <select 
           className="md:w-48 py-2.5 px-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm transition-shadow bg-white"
           value={statusFilter}
@@ -114,8 +208,10 @@ export default function VerificationPage() {
               <thead className="bg-slate-50">
                 <tr>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Candidate Name</th>
+                  <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Location</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Source</th>
+                  <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Data Origin</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Match Type</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-[11px] font-bold text-slate-500 uppercase tracking-wider">Action</th>
@@ -124,14 +220,20 @@ export default function VerificationPage() {
               <tbody className="bg-white divide-y divide-slate-200">
                 {filteredReviews.map((rev) => (
                   <tr key={rev.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
-                      {rev.candidateData?.name || 'Unknown'}
+                    <td className="px-6 py-4 text-sm font-bold text-slate-900 max-w-[250px] truncate" title={getCandidateName(rev)}>
+                      {getCandidateName(rev)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
-                      {rev.candidateData?.city || rev.candidateData?.district || rev.candidateData?.state || 'Unknown'}
+                      {getTypeLabel(rev)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 font-medium">
+                      {getLocation(rev)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                       <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-xs font-semibold">{rev.sourceId}</span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      {rev.candidateData?.dataOrigin ? <DataOriginBadge origin={rev.candidateData.dataOrigin} /> : <span className="text-slate-400 text-xs italic">Unknown</span>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                        {rev.matchType === 'EXACT_MATCH' ? <Badge variant="success">Exact Match</Badge> :

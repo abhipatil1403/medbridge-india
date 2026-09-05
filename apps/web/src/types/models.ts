@@ -422,6 +422,7 @@ export interface AcquisitionReview {
   id: string;
   sourceId: string;
   sourceType: string;
+  entityType?: 'HOSPITAL' | 'CLINIC' | 'DOCTOR' | 'TREATMENT' | 'PROVIDER_SERVICE';
   candidateData: any;
   matchType: 'EXACT_MATCH' | 'PROBABLE_MATCH' | 'POSSIBLE_MATCH' | 'NO_MATCH';
   potentialMatches: string[];

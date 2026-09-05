@@ -55,16 +55,17 @@ export const adminAcquisitionService = {
   },
 
   /**
-   * Approves a candidate and merges specific fields into an existing hospital.
+   * Approves a candidate and merges specific fields into an existing entity.
    */
   async approveAndMergeToExisting(
     reviewId: string,
-    hospitalId: string,
+    existingEntityId: string,
     candidateData: any,
     canonicalData: any,
     approvedFields: string[],
     actorId: string,
-    actorRole: string
+    actorRole: string,
+    entityType: string = 'HOSPITAL'
   ): Promise<void> {
     // 1. Safe Merge: Candidate null/empty does not overwrite populated canonical.
     const mergedData: any = {};
@@ -89,19 +90,29 @@ export const adminAcquisitionService = {
       };
     }
 
+    let targetCollection = HOSPITALS_COLLECTION;
+    let resourceType = 'HOSPITAL';
+    if (entityType === 'TREATMENT') {
+      targetCollection = 'treatments';
+      resourceType = 'TREATMENT';
+    } else if (entityType === 'PROVIDER_SERVICE') {
+      targetCollection = 'providerServices';
+      resourceType = 'PROVIDER_SERVICE';
+    }
+
     if (Object.keys(mergedData).length > 0) {
-      const hospitalRef = doc(db, HOSPITALS_COLLECTION, hospitalId);
-      await updateDoc(hospitalRef, {
+      const docRef = doc(db, targetCollection, existingEntityId);
+      await updateDoc(docRef, {
         ...mergedData,
         updatedAt: new Date().toISOString()
       });
     }
 
     // 2. Mark review as APPROVED_MERGE
-    const docRef = doc(db, ACQUISITION_REVIEWS_COLLECTION, reviewId);
-    await updateDoc(docRef, {
+    const reviewRef = doc(db, ACQUISITION_REVIEWS_COLLECTION, reviewId);
+    await updateDoc(reviewRef, {
       status: 'APPROVED_MERGE',
-      entityId: hospitalId,
+      entityId: existingEntityId,
       reviewerId: actorId,
       reviewedAt: new Date().toISOString()
     });
@@ -111,45 +122,75 @@ export const adminAcquisitionService = {
       actorId,
       actorRole,
       action: 'ACQUISITION_APPROVED_MERGE',
-      resourceType: 'HOSPITAL',
-      resourceId: hospitalId,
-      metadata: { reviewId, updatedKeys: Object.keys(mergedData) }
+      resourceType,
+      resourceId: existingEntityId,
+      metadata: { reviewId, updatedKeys: Object.keys(mergedData), entityType }
     });
   },
 
-  /**
-   * Approves a candidate and creates a NEW hospital in DRAFT state.
-   */
   async approveAndCreateDraft(
     reviewId: string,
     candidateData: any,
     actorId: string,
-    actorRole: string
+    actorRole: string,
+    entityType: string = 'HOSPITAL'
   ): Promise<string> {
     const now = new Date().toISOString();
     
-    const newHospital: Hospital = {
-      name: candidateData.name || '',
-      city: candidateData.city || null,
-      specialties: candidateData.specialties || [],
-      treatments: candidateData.treatments || [],
-      status: 'DRAFT', 
-      source: 'DATA_PIPELINE',
-      verificationStatus: 'REVIEWED',
-      lastCheckedAt: now,
-      createdAt: now,
-      updatedAt: now,
-      ...candidateData
-    };
+    let targetCollection = HOSPITALS_COLLECTION;
+    let resourceType = 'HOSPITAL';
+    let newEntity: any = {};
 
-    delete (newHospital as any).sourceId;
-    delete (newHospital as any).rawRecordId;
-    delete (newHospital as any).retrievedAt;
-    delete (newHospital as any).externalIdentifier;
-    delete (newHospital as any).matchType;
+    if (entityType === 'TREATMENT') {
+      targetCollection = 'treatments';
+      resourceType = 'TREATMENT';
+      newEntity = {
+        name: candidateData.name || '',
+        status: 'PUBLISHED',
+        createdAt: now,
+        updatedAt: now,
+        ...candidateData
+      };
+    } else if (entityType === 'PROVIDER_SERVICE') {
+      targetCollection = 'providerServices';
+      resourceType = 'PROVIDER_SERVICE';
+      newEntity = {
+        status: 'PUBLISHED',
+        createdAt: now,
+        updatedAt: now,
+        ...candidateData
+      };
+    } else {
+      // Default to Hospital/Provider
+      newEntity = {
+        name: candidateData.name || '',
+        city: candidateData.city || null,
+        specialties: candidateData.specialties || [],
+        treatments: candidateData.treatments || [],
+        status: 'DRAFT', 
+        source: 'DATA_PIPELINE',
+        verificationStatus: 'REVIEWED',
+        lastCheckedAt: now,
+        createdAt: now,
+        updatedAt: now,
+        ...candidateData
+      };
+    }
 
-    const hospitalRef = await addDoc(collection(db, HOSPITALS_COLLECTION), newHospital);
-    const newId = hospitalRef.id;
+    delete newEntity.sourceId;
+    delete newEntity.rawRecordId;
+    delete newEntity.retrievedAt;
+    delete newEntity.externalIdentifier;
+    delete newEntity.matchType;
+    delete newEntity.dataOrigin; // Keep it if we want it? Yes, we want it for provenance! Wait, let's keep it if we want to show it. The UI uses it.
+    
+    // We should re-add dataOrigin since it was passed in candidateData.
+    if (candidateData.dataOrigin) {
+      newEntity.dataOrigin = candidateData.dataOrigin;
+    }
+
+    const docRef = await addDoc(collection(db, targetCollection), newEntity);
+    const newId = docRef.id;
 
     const reviewRef = doc(db, ACQUISITION_REVIEWS_COLLECTION, reviewId);
     await updateDoc(reviewRef, {
@@ -162,10 +203,10 @@ export const adminAcquisitionService = {
     await createAuditLog({
       actorId,
       actorRole,
-      action: 'ACQUISITION_APPROVED_NEW_DRAFT',
-      resourceType: 'HOSPITAL',
+      action: `ACQUISITION_APPROVED_NEW_DRAFT`,
+      resourceType,
       resourceId: newId,
-      metadata: { reviewId }
+      metadata: { reviewId, entityType }
     });
 
     return newId;
