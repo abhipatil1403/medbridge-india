@@ -43,7 +43,7 @@ export async function getTreatmentOptions(filters: OptionsFilters): Promise<Trea
     const matchReasons: string[] = ['Treatment availability found'];
 
     try {
-      const providerDoc = await getDoc(doc(db, 'providers', service.providerId));
+      const providerDoc = await getDoc(doc(db, 'hospitals', service.providerId));
       if (providerDoc.exists()) {
         provider = { id: providerDoc.id, ...providerDoc.data() } as Hospital;
         
@@ -128,7 +128,7 @@ export async function getTreatmentOptionsByIds(serviceIds: string[]): Promise<Tr
       
       const service = { id: serviceDoc.id, ...serviceDoc.data() } as ProviderService;
       
-      const providerDoc = await getDoc(doc(db, 'providers', service.providerId));
+      const providerDoc = await getDoc(doc(db, 'hospitals', service.providerId));
       if (providerDoc.exists()) {
         const provider = { id: providerDoc.id, ...providerDoc.data() } as Hospital;
         options.push({

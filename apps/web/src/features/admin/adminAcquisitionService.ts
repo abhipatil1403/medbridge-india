@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, getDoc, updateDoc, query, orderBy, where, addDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, updateDoc, query, orderBy, where, addDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase/client';
 import { AcquisitionReview, AcquisitionReviewStatus, Hospital, ProviderStatus } from '../../types/models';
 import { createAuditLog } from './adminAuditService';
@@ -177,20 +177,28 @@ export const adminAcquisitionService = {
       };
     }
 
+    // Try to use a provided ID for stable relational linking if available, otherwise auto-generate
+    const customId = candidateData.externalIdentifier || candidateData.id;
     delete newEntity.sourceId;
     delete newEntity.rawRecordId;
     delete newEntity.retrievedAt;
     delete newEntity.externalIdentifier;
     delete newEntity.matchType;
-    delete newEntity.dataOrigin; // Keep it if we want it? Yes, we want it for provenance! Wait, let's keep it if we want to show it. The UI uses it.
+    delete newEntity.dataOrigin; 
     
     // We should re-add dataOrigin since it was passed in candidateData.
     if (candidateData.dataOrigin) {
       newEntity.dataOrigin = candidateData.dataOrigin;
     }
 
-    const docRef = await addDoc(collection(db, targetCollection), newEntity);
-    const newId = docRef.id;
+    let newId = '';
+    if (customId) {
+      newId = customId;
+      await setDoc(doc(db, targetCollection, customId), newEntity);
+    } else {
+      const docRef = await addDoc(collection(db, targetCollection), newEntity);
+      newId = docRef.id;
+    }
 
     const reviewRef = doc(db, ACQUISITION_REVIEWS_COLLECTION, reviewId);
     await updateDoc(reviewRef, {
